@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; font-src data:; base-uri 'none'; form-action 'none'">
+<title>$title</title>
+<style>
+$css
+:root { --sheet-width: ${width}px; --code-size: ${font_size}px; --code-height: $line_height; --request-ratio: ${request_ratio}fr; --response-ratio: ${response_ratio}fr; }
+$custom_css
+</style>
+</head>
+<body data-theme="$theme" data-layout="$layout" data-appearance="$appearance" data-font="$font_family">
+<main aria-label="HTTP evidence">$sheets</main>
+</body>
+</html>

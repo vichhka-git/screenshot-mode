@@ -1,0 +1,11 @@
+/* Optional report styling applied after the template's palette and spacing. */
+body[data-appearance] .sheet {
+  border-top: 4px solid var(--protocol);
+}
+body[data-appearance] h1 {
+  font-size: 18px;
+  font-weight: 600;
+}
+body[data-appearance] .endpoint code {
+  border-radius: 0;
+}

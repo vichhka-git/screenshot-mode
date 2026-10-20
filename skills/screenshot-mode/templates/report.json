@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "name": "Report",
+  "theme": "light",
+  "layout": "vertical",
+  "width": 1200,
+  "page_lines": 40
+}

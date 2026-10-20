@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "name": "Dark traffic",
+  "theme": "dark",
+  "layout": "horizontal",
+  "width": 1440,
+  "font_size": 14,
+  "page_lines": 36
+}

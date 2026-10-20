@@ -1,0 +1,8 @@
+{
+  "extends": "caido-stacked",
+  "version": 1,
+  "name": "Caido A4 report",
+  "width": "a4",
+  "page_lines": 12,
+  "pretty": true
+}

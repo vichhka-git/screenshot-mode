@@ -1,0 +1,13 @@
+{
+  "extends": "caido",
+  "name": "Synthetic project example",
+  "width": 1100,
+  "font_size": 16,
+  "line_height": 1.6,
+  "redactions": [
+    {"target": "response", "pattern": "demo@example.test"}
+  ],
+  "highlights": [
+    {"target": "response", "pattern": "project_id", "mode": "rectangle", "color": "#F1C75B"}
+  ]
+}

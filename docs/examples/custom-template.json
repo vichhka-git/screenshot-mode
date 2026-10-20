@@ -1,0 +1,38 @@
+{
+  "extends": "caido",
+  "version": 1,
+  "name": "Clean document evidence",
+  "theme": "light",
+  "layout": "vertical",
+  "width": "a4",
+  "page_lines": 16,
+  "pretty": true,
+  "show_title": true,
+  "colors": {
+    "paper": "#FFFFFF",
+    "panel": "#F8FAFC",
+    "ink": "#17212F",
+    "muted": "#526174",
+    "border": "#CBD5E1",
+    "accent": "#855000",
+    "protocol": "#166246",
+    "method": "#6F3595",
+    "string": "#365E2C",
+    "metadata_background": "#E8EDF4",
+    "url_background": "#E3EAF4",
+    "start_background": "#EEF2F7",
+    "divider": "#CBD5E1"
+  },
+  "spacing": {
+    "header_x": 18,
+    "header_y": 12,
+    "panel_title_x": 18,
+    "panel_title_y": 10,
+    "panel_y": 10,
+    "line_gap": 12,
+    "gutter_width": 36,
+    "divider_width": 1,
+    "metadata_x": 18,
+    "metadata_y": 8
+  }
+}

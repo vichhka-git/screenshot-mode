@@ -1,0 +1,4 @@
+interface:
+  display_name: "Screenshot Mode"
+  short_description: "Render HTTP evidence with redaction and highlights"
+  default_prompt: "Use $screenshot-mode to render my captured HTTP exchange as report images with redactions and highlights."

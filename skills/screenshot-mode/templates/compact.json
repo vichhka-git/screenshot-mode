@@ -1,0 +1,12 @@
+{
+  "extends": "report",
+  "version": 1,
+  "name": "Compact report",
+  "layout": "horizontal",
+  "font_size": 13,
+  "headers_to_hide": {
+    "both": ["Accept-Encoding", "Accept-Language", "Connection", "Date", "Keep-Alive", "Sec-Fetch-Dest", "Sec-Fetch-Mode", "Sec-Fetch-Site"],
+    "request": [],
+    "response": []
+  }
+}

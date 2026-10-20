@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "name": "Caido traffic",
+  "appearance": "caido",
+  "theme": "dark",
+  "layout": "horizontal",
+  "width": "full",
+  "font_size": 14,
+  "line_height": 1.4,
+  "font_family": "bundled",
+  "page_lines": 0,
+  "pretty": true,
+  "show_title": false,
+  "show_notes": false,
+  "show_timestamp": true,
+  "show_response_info": true,
+  "show_sni": true
+}

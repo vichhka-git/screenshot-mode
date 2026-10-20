@@ -1,0 +1,7 @@
+{
+  "request": "GET /api/projects/42 HTTP/1.1\r\nHost: demo.example.test\r\nAuthorization: Bearer DEMO_TOKEN_DO_NOT_USE\r\nAccept: application/json\r\n\r\n",
+  "response": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"project_id\":42,\"name\":\"Demo project\",\"owner_email\":\"demo@example.test\",\"access\":\"read\"}",
+  "metadata": {
+    "url": "https://demo.example.test/api/projects/42"
+  }
+}
