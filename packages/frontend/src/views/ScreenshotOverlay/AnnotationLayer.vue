@@ -31,7 +31,8 @@ const { annotations, tool, color, strokeWidth, fontSize } = defineProps<{
 
 const emit = defineEmits<{
   add: [annotation: Annotation];
-  update: [annotation: Annotation];
+  update: [annotations: Annotation[]];
+  remove: [ids: string[]];
 }>();
 
 const containerRef = ref<HTMLElement>();
@@ -40,8 +41,9 @@ const textInputRef = ref<HTMLInputElement>();
 const draft = ref<Annotation>();
 const textDraft = ref<{ x: number; y: number; text: string }>();
 const drawing = ref(false);
-const selectedId = ref<string>();
+const selectedIds = ref<string[]>([]);
 const drag = ref<DragState>();
+const marquee = ref<MarqueeState>();
 
 let resizeObserver: ResizeObserver | undefined;
 
@@ -50,13 +52,24 @@ type ResizeHandle = "nw" | "ne" | "se" | "sw";
 type DragState = {
   kind: "move" | "resize";
   start: AnnotationPoint;
-  original: Annotation;
-  current: Annotation;
+  originals: Annotation[];
+  currents: Annotation[];
   handle?: ResizeHandle;
   moved: boolean;
 };
 
+type MarqueeState = {
+  start: AnnotationPoint;
+  end: AnnotationPoint;
+  additive: boolean;
+  moved: boolean;
+};
+
 type Bounds = { x: number; y: number; width: number; height: number };
+
+function cloneAnnotation(annotation: Annotation): Annotation {
+  return JSON.parse(JSON.stringify(annotation)) as Annotation;
+}
 
 const isDrawingTool = computed(() => tool !== AnnotationTool.Select);
 
@@ -295,43 +308,88 @@ function translateAnnotation(
   return annotation;
 }
 
-function resizeAnnotation(
-  annotation: Annotation,
-  handle: ResizeHandle,
-  point: AnnotationPoint,
-): Annotation {
-  const bounds = getNormalizedBounds(annotation);
-  if (bounds === undefined) {
-    return annotation;
+function getSelectionBounds(selected: Annotation[]): Bounds | undefined {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const annotation of selected) {
+    const bounds = getNormalizedBounds(annotation);
+    if (bounds === undefined) {
+      continue;
+    }
+    minX = Math.min(minX, bounds.x);
+    minY = Math.min(minY, bounds.y);
+    maxX = Math.max(maxX, bounds.x + bounds.width);
+    maxY = Math.max(maxY, bounds.y + bounds.height);
   }
 
-  const anchorX = handle.includes("w") ? bounds.x + bounds.width : bounds.x;
-  const anchorY = handle.includes("n") ? bounds.y + bounds.height : bounds.y;
-  const cornerX = handle.includes("w") ? bounds.x : bounds.x + bounds.width;
-  const cornerY = handle.includes("n") ? bounds.y : bounds.y + bounds.height;
-  const safeScale = (value: number): number =>
-    Math.min(20, Math.max(0.05, value));
-  const sx = safeScale(
-    Math.abs(cornerX - anchorX) < 0.0001
-      ? 1
-      : (point.x - anchorX) / (cornerX - anchorX),
+  if (minX === Number.POSITIVE_INFINITY) {
+    return undefined;
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
+function toCanvasBounds(bounds: Bounds): Bounds | undefined {
+  const canvas = canvasRef.value;
+  if (canvas === undefined) {
+    return undefined;
+  }
+
+  return {
+    x: bounds.x * canvas.width,
+    y: bounds.y * canvas.height,
+    width: bounds.width * canvas.width,
+    height: bounds.height * canvas.height,
+  };
+}
+
+function translateSelection(
+  originals: Annotation[],
+  dx: number,
+  dy: number,
+): Annotation[] {
+  const bounds = getSelectionBounds(originals);
+  if (bounds === undefined) {
+    return originals;
+  }
+
+  const nextX = Math.min(
+    Math.max(-bounds.x, dx),
+    Math.max(0, 1 - bounds.x - bounds.width),
   );
-  const sy = safeScale(
-    Math.abs(cornerY - anchorY) < 0.0001
-      ? 1
-      : (point.y - anchorY) / (cornerY - anchorY),
+  const nextY = Math.min(
+    Math.max(-bounds.y, dy),
+    Math.max(0, 1 - bounds.y - bounds.height),
   );
 
+  return originals.map((annotation) =>
+    translateAnnotation(annotation, nextX, nextY),
+  );
+}
+
+function scaleAnnotation(
+  annotation: Annotation,
+  anchorX: number,
+  anchorY: number,
+  sx: number,
+  sy: number,
+): Annotation {
   if (annotation.type === "text" || annotation.type === "step") {
     const factor = Math.max(sx, sy);
-    const position = {
-      x: clamp(anchorX + (annotation.position.x - anchorX) * factor),
-      y: clamp(anchorY + (annotation.position.y - anchorY) * factor),
-    };
-
     return {
       ...annotation,
-      position,
+      position: {
+        x: clamp(anchorX + (annotation.position.x - anchorX) * factor),
+        y: clamp(anchorY + (annotation.position.y - anchorY) * factor),
+      },
       fontSize: Math.min(200, Math.max(6, annotation.fontSize * factor)),
     };
   }
@@ -356,16 +414,46 @@ function resizeAnnotation(
   return annotation;
 }
 
-function drawSelection(annotation: Annotation): void {
+function resizeSelection(
+  originals: Annotation[],
+  handle: ResizeHandle,
+  point: AnnotationPoint,
+): Annotation[] {
+  const bounds = getSelectionBounds(originals);
+  if (bounds === undefined) {
+    return originals;
+  }
+
+  const anchorX = handle.includes("w") ? bounds.x + bounds.width : bounds.x;
+  const anchorY = handle.includes("n") ? bounds.y + bounds.height : bounds.y;
+  const cornerX = handle.includes("w") ? bounds.x : bounds.x + bounds.width;
+  const cornerY = handle.includes("n") ? bounds.y : bounds.y + bounds.height;
+  const safeScale = (value: number): number =>
+    Math.min(20, Math.max(0.05, value));
+  const sx = safeScale(
+    Math.abs(cornerX - anchorX) < 0.0001
+      ? 1
+      : (point.x - anchorX) / (cornerX - anchorX),
+  );
+  const sy = safeScale(
+    Math.abs(cornerY - anchorY) < 0.0001
+      ? 1
+      : (point.y - anchorY) / (cornerY - anchorY),
+  );
+
+  return originals.map((annotation) =>
+    scaleAnnotation(annotation, anchorX, anchorY, sx, sy),
+  );
+}
+
+function drawSelectionBounds(
+  bounds: Bounds,
+  handles: boolean,
+  subtle = false,
+): void {
   const canvas = canvasRef.value;
   const ctx = canvas?.getContext("2d");
-  const bounds = getAnnotationBounds(annotation);
-  if (
-    canvas === undefined ||
-    ctx === null ||
-    ctx === undefined ||
-    bounds === undefined
-  ) {
+  if (canvas === undefined || ctx === null || ctx === undefined) {
     return;
   }
 
@@ -380,19 +468,104 @@ function drawSelection(annotation: Annotation): void {
   ];
 
   ctx.save();
+  ctx.strokeStyle = subtle ? "rgba(56, 189, 248, 0.65)" : "#38bdf8";
+  ctx.lineWidth = (subtle ? 1 : 1.5) * scale;
+  ctx.setLineDash(subtle ? [3 * scale, 3 * scale] : [5 * scale, 3 * scale]);
+  ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+
+  if (handles) {
+    ctx.setLineDash([]);
+    for (const corner of corners) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(corner.x - half, corner.y - half, handleSize, handleSize);
+      ctx.strokeStyle = "#0ea5e9";
+      ctx.strokeRect(corner.x - half, corner.y - half, handleSize, handleSize);
+    }
+  }
+
+  ctx.restore();
+}
+
+function getDisplayedAnnotation(id: string): Annotation | undefined {
+  const dragged = drag.value?.currents.find(
+    (annotation) => annotation.id === id,
+  );
+  if (dragged !== undefined) {
+    return dragged;
+  }
+
+  return annotations.find((annotation) => annotation.id === id);
+}
+
+function getDisplayedSelection(): Annotation[] {
+  return selectedIds.value.flatMap((id) => {
+    const annotation = getDisplayedAnnotation(id);
+    return annotation === undefined ? [] : [annotation];
+  });
+}
+
+function drawSelection(): void {
+  const selected = getDisplayedSelection();
+  if (selected.length === 0) {
+    return;
+  }
+
+  if (selected.length === 1) {
+    const bounds = getAnnotationBounds(selected[0]!);
+    if (bounds !== undefined) {
+      drawSelectionBounds(bounds, true);
+    }
+    return;
+  }
+
+  for (const annotation of selected) {
+    const bounds = getAnnotationBounds(annotation);
+    if (bounds !== undefined) {
+      drawSelectionBounds(bounds, false, true);
+    }
+  }
+
+  const groupBounds = getSelectionBounds(selected);
+  const canvasBounds =
+    groupBounds === undefined ? undefined : toCanvasBounds(groupBounds);
+  if (canvasBounds !== undefined) {
+    drawSelectionBounds(canvasBounds, true);
+  }
+}
+
+function drawMarquee(): void {
+  const state = marquee.value;
+  const canvas = canvasRef.value;
+  const ctx = canvas?.getContext("2d");
+  if (
+    state === undefined ||
+    canvas === undefined ||
+    ctx === null ||
+    ctx === undefined
+  ) {
+    return;
+  }
+
+  const rect = getRect(state.start, state.end);
+  const scale = getScale()?.scale ?? 1;
+
+  ctx.save();
+  ctx.fillStyle = "rgba(56, 189, 248, 0.12)";
   ctx.strokeStyle = "#38bdf8";
   ctx.lineWidth = 1.5 * scale;
   ctx.setLineDash([5 * scale, 3 * scale]);
-  ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
-  ctx.setLineDash([]);
-
-  for (const corner of corners) {
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(corner.x - half, corner.y - half, handleSize, handleSize);
-    ctx.strokeStyle = "#0ea5e9";
-    ctx.strokeRect(corner.x - half, corner.y - half, handleSize, handleSize);
-  }
-
+  ctx.fillRect(
+    rect.x * canvas.width,
+    rect.y * canvas.height,
+    rect.width * canvas.width,
+    rect.height * canvas.height,
+  );
+  ctx.strokeRect(
+    rect.x * canvas.width,
+    rect.y * canvas.height,
+    rect.width * canvas.width,
+    rect.height * canvas.height,
+  );
   ctx.restore();
 }
 
@@ -409,8 +582,8 @@ function draw(): void {
   }
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const visibleAnnotations = annotations.map((annotation) =>
-    drag.value?.current.id === annotation.id ? drag.value.current : annotation,
+  const visibleAnnotations = annotations.map(
+    (annotation) => getDisplayedAnnotation(annotation.id) ?? annotation,
   );
   const allAnnotations =
     draft.value === undefined
@@ -425,12 +598,8 @@ function draw(): void {
     return;
   }
 
-  const selected =
-    drag.value?.current ??
-    annotations.find((annotation) => annotation.id === selectedId.value);
-  if (selected !== undefined) {
-    drawSelection(selected);
-  }
+  drawSelection();
+  drawMarquee();
 }
 
 function resizeCanvas(): void {
@@ -527,18 +696,18 @@ function startDrawing(event: PointerEvent, point: AnnotationPoint): void {
 
 function beginDrag(
   event: PointerEvent,
-  annotation: Annotation,
+  annotationsToDrag: Annotation[],
   point: AnnotationPoint,
   kind: "move" | "resize",
   handle?: ResizeHandle,
 ): void {
-  selectedId.value = annotation.id;
-  const original = JSON.parse(JSON.stringify(annotation)) as Annotation;
+  selectedIds.value = annotationsToDrag.map((annotation) => annotation.id);
+  const originals = annotationsToDrag.map(cloneAnnotation);
   drag.value = {
     kind,
     start: point,
-    original,
-    current: JSON.parse(JSON.stringify(original)) as Annotation,
+    originals,
+    currents: originals.map(cloneAnnotation),
     handle,
     moved: false,
   };
@@ -546,20 +715,22 @@ function beginDrag(
   draw();
 }
 
-function startSelection(event: PointerEvent, point: AnnotationPoint): void {
-  const selected = annotations.find(
-    (annotation) => annotation.id === selectedId.value,
-  );
+function startSelection(
+  event: PointerEvent,
+  point: AnnotationPoint,
+  additive: boolean,
+): void {
+  const selected = getSelectionBounds(getDisplayedSelection());
+  const selectedBounds =
+    selected === undefined ? undefined : toCanvasBounds(selected);
+  const selectedHandle =
+    selectedBounds === undefined
+      ? undefined
+      : getHandleAt(selectedBounds, point);
 
-  if (selected !== undefined) {
-    const bounds = getAnnotationBounds(selected);
-    const handle =
-      bounds === undefined ? undefined : getHandleAt(bounds, point);
-
-    if (handle !== undefined) {
-      beginDrag(event, selected, point, "resize", handle);
-      return;
-    }
+  if (selectedHandle !== undefined) {
+    beginDrag(event, getDisplayedSelection(), point, "resize", selectedHandle);
+    return;
   }
 
   const hit = [...annotations]
@@ -567,11 +738,31 @@ function startSelection(event: PointerEvent, point: AnnotationPoint): void {
     .find((annotation) => isPointInAnnotation(annotation, point));
 
   if (hit !== undefined) {
-    beginDrag(event, hit, point, "move");
+    if (additive) {
+      selectedIds.value = selectedIds.value.includes(hit.id)
+        ? selectedIds.value.filter((id) => id !== hit.id)
+        : [...selectedIds.value, hit.id];
+      draw();
+      return;
+    }
+
+    const targets = selectedIds.value.includes(hit.id)
+      ? getDisplayedSelection()
+      : [hit];
+    beginDrag(event, targets, point, "move");
     return;
   }
 
-  selectedId.value = undefined;
+  if (!additive) {
+    selectedIds.value = [];
+  }
+  marquee.value = {
+    start: point,
+    end: point,
+    additive,
+    moved: false,
+  };
+  canvasRef.value?.setPointerCapture(event.pointerId);
   draw();
 }
 
@@ -582,25 +773,27 @@ function updateCursor(event: PointerEvent): void {
   }
 
   const point = getPoint(event);
-  const selected = annotations.find(
-    (annotation) => annotation.id === selectedId.value,
-  );
-  let cursor = "default";
+  const selected = getDisplayedSelection();
+  let cursor = "crosshair";
 
-  if (selected !== undefined) {
-    const bounds = getAnnotationBounds(selected);
+  if (selected.length > 0) {
+    const groupBounds = getSelectionBounds(selected);
+    const canvasBounds =
+      groupBounds === undefined ? undefined : toCanvasBounds(groupBounds);
     const handle =
-      bounds === undefined ? undefined : getHandleAt(bounds, point);
+      canvasBounds === undefined ? undefined : getHandleAt(canvasBounds, point);
 
     if (handle !== undefined) {
       cursor =
         handle === "nw" || handle === "se" ? "nwse-resize" : "nesw-resize";
-    } else if (isPointInAnnotation(selected, point)) {
+    } else if (
+      selected.some((annotation) => isPointInAnnotation(annotation, point))
+    ) {
       cursor = "move";
     }
   }
 
-  if (cursor === "default") {
+  if (cursor === "crosshair") {
     const hit = annotations.some((annotation) =>
       isPointInAnnotation(annotation, point),
     );
@@ -626,7 +819,11 @@ function handlePointerDown(event: PointerEvent): void {
   if (tool === AnnotationTool.Select) {
     event.preventDefault();
     event.stopPropagation();
-    startSelection(event, point);
+    startSelection(
+      event,
+      point,
+      event.shiftKey || event.metaKey || event.ctrlKey,
+    );
     return;
   }
 
@@ -651,26 +848,42 @@ function handlePointerDown(event: PointerEvent): void {
 }
 
 function handlePointerMove(event: PointerEvent): void {
-  const state = drag.value;
+  const state = marquee.value;
   if (state !== undefined) {
     event.preventDefault();
     const point = getPoint(event);
-    const distance = Math.hypot(
-      point.x - state.start.x,
-      point.y - state.start.y,
-    );
-    if (distance > 0.001) {
+    state.end = point;
+    if (Math.hypot(point.x - state.start.x, point.y - state.start.y) > 0.001) {
       state.moved = true;
     }
+    draw();
+    return;
+  }
 
-    if (state.kind === "move") {
-      state.current = translateAnnotation(
-        state.original,
-        point.x - state.start.x,
-        point.y - state.start.y,
+  const dragState = drag.value;
+  if (dragState !== undefined) {
+    event.preventDefault();
+    const point = getPoint(event);
+    const distance = Math.hypot(
+      point.x - dragState.start.x,
+      point.y - dragState.start.y,
+    );
+    if (distance > 0.001) {
+      dragState.moved = true;
+    }
+
+    if (dragState.kind === "move") {
+      dragState.currents = translateSelection(
+        dragState.originals,
+        point.x - dragState.start.x,
+        point.y - dragState.start.y,
       );
-    } else if (state.handle !== undefined) {
-      state.current = resizeAnnotation(state.original, state.handle, point);
+    } else if (dragState.handle !== undefined) {
+      dragState.currents = resizeSelection(
+        dragState.originals,
+        dragState.handle,
+        point,
+      );
     }
 
     draw();
@@ -704,16 +917,49 @@ function handlePointerMove(event: PointerEvent): void {
 }
 
 function finishDrawing(event: PointerEvent): void {
+  const canvas = canvasRef.value;
+  const selection = marquee.value;
+  if (selection !== undefined) {
+    if (canvas?.hasPointerCapture(event.pointerId) === true) {
+      canvas.releasePointerCapture(event.pointerId);
+    }
+    marquee.value = undefined;
+
+    if (selection.moved) {
+      const rect = getRect(selection.start, selection.end);
+      const hits = annotations
+        .filter((annotation) => {
+          const bounds = getNormalizedBounds(annotation);
+          if (bounds === undefined) {
+            return false;
+          }
+          return (
+            bounds.x <= rect.x + rect.width &&
+            bounds.x + bounds.width >= rect.x &&
+            bounds.y <= rect.y + rect.height &&
+            bounds.y + bounds.height >= rect.y
+          );
+        })
+        .map((annotation) => annotation.id);
+
+      selectedIds.value = selection.additive
+        ? [...new Set([...selectedIds.value, ...hits])]
+        : hits;
+    }
+
+    draw();
+    return;
+  }
+
   const state = drag.value;
   if (state !== undefined) {
-    const canvas = canvasRef.value;
     if (canvas?.hasPointerCapture(event.pointerId) === true) {
       canvas.releasePointerCapture(event.pointerId);
     }
 
     drag.value = undefined;
     if (state.moved) {
-      emit("update", state.current);
+      emit("update", state.currents);
     }
     draw();
     return;
@@ -724,7 +970,6 @@ function finishDrawing(event: PointerEvent): void {
     return;
   }
 
-  const canvas = canvasRef.value;
   if (canvas?.hasPointerCapture(event.pointerId) === true) {
     canvas.releasePointerCapture(event.pointerId);
   }
@@ -765,8 +1010,35 @@ function handlePointerCancel(event: PointerEvent): void {
   }
 
   drag.value = undefined;
+  marquee.value = undefined;
   draft.value = undefined;
   drawing.value = false;
+  draw();
+}
+
+function handleKeyDown(event: KeyboardEvent): void {
+  if (event.key !== "Delete" && event.key !== "Backspace") {
+    return;
+  }
+
+  if (tool !== AnnotationTool.Select || selectedIds.value.length === 0) {
+    return;
+  }
+
+  const target = event.target;
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+  emit("remove", [...selectedIds.value]);
+  selectedIds.value = [];
+  drag.value = undefined;
+  marquee.value = undefined;
   draw();
 }
 
@@ -800,12 +1072,8 @@ defineExpose({ commitPendingText, getCapture });
 watch(
   () => annotations,
   (next) => {
-    if (
-      selectedId.value !== undefined &&
-      !next.some((annotation) => annotation.id === selectedId.value)
-    ) {
-      selectedId.value = undefined;
-    }
+    const ids = new Set(next.map((annotation) => annotation.id));
+    selectedIds.value = selectedIds.value.filter((id) => ids.has(id));
     draw();
   },
 );
@@ -813,8 +1081,9 @@ watch(
 watch(
   () => tool,
   () => {
-    selectedId.value = undefined;
+    selectedIds.value = [];
     drag.value = undefined;
+    marquee.value = undefined;
     draft.value = undefined;
     textDraft.value = undefined;
     drawing.value = false;
@@ -830,12 +1099,14 @@ onMounted(() => {
   }
 
   window.addEventListener("resize", resizeCanvas);
+  window.addEventListener("keydown", handleKeyDown);
   resizeCanvas();
 });
 
 onUnmounted(() => {
   resizeObserver?.disconnect();
   window.removeEventListener("resize", resizeCanvas);
+  window.removeEventListener("keydown", handleKeyDown);
 });
 </script>
 

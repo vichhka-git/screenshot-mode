@@ -232,17 +232,30 @@ function handleAddAnnotation(annotation: Annotation): void {
   commitAnnotations([...annotations.value, annotation]);
 }
 
-function handleUpdateAnnotation(annotation: Annotation): void {
-  const index = annotations.value.findIndex(
-    (item) => item.id === annotation.id,
-  );
-  if (index === -1) {
+function handleUpdateAnnotations(updated: Annotation[]): void {
+  if (updated.length === 0) {
     return;
   }
 
-  const next = [...annotations.value];
-  next[index] = annotation;
-  commitAnnotations(next);
+  const byId = new Map(
+    updated.map((annotation) => [annotation.id, annotation]),
+  );
+  commitAnnotations(
+    annotations.value.map(
+      (annotation) => byId.get(annotation.id) ?? annotation,
+    ),
+  );
+}
+
+function handleRemoveAnnotations(ids: string[]): void {
+  if (ids.length === 0) {
+    return;
+  }
+
+  const removed = new Set(ids);
+  commitAnnotations(
+    annotations.value.filter((annotation) => !removed.has(annotation.id)),
+  );
 }
 
 function handleUndoAnnotation(): void {
@@ -513,7 +526,8 @@ onUnmounted(() => {
                     :stroke-width="annotationWidth"
                     :font-size="annotationFontSize"
                     @add="handleAddAnnotation"
-                    @update="handleUpdateAnnotation"
+                    @update="handleUpdateAnnotations"
+                    @remove="handleRemoveAnnotations"
                   />
                 </template>
               </ContentPanel>

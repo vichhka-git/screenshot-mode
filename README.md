@@ -39,7 +39,7 @@ Caido's rendering engine is required. Install it from Settings > Rendering in Ca
 
 The annotation bar sits under the overlay header. Pick a tool, a color, a stroke size, and a text size, then draw on the capture.
 
-- Select moves annotations. Drag an annotation to move it, or drag a corner handle to resize it.
+- Select picks annotations. Drag to move, drag a corner handle to resize, or press Delete to remove. Drag on empty space to select several at once. Shift-click adds one to the selection or removes it.
 - Pen and highlighter draw freehand.
 - Arrow, rectangle, and ellipse call out a request or response.
 - Text adds a label.
