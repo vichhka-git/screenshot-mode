@@ -97,7 +97,7 @@ defineExpose({
   <div class="flex w-full flex-1 flex-col">
     <div
       ref="captureRootRef"
-      class="flex w-full flex-1 flex-col overflow-hidden border border-surface-600"
+      class="relative flex w-full flex-1 flex-col overflow-hidden border border-surface-600"
       :style="contentStyle"
     >
       <UrlHeader :url="url" :sni="sni" />
@@ -118,6 +118,7 @@ defineExpose({
         @add-hidden-header="(headerName) => emit('addHiddenHeader', headerName)"
         @update-splitter-sizes="(sizes) => emit('updateSplitterSizes', sizes)"
       />
+      <slot name="annotation" />
     </div>
     <!-- Crop drag handle -->
     <div

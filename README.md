@@ -35,6 +35,19 @@ Preview renders the selected response the way a browser would show it. Use it fo
 
 Caido's rendering engine is required. Install it from Settings > Rendering in Caido's account menu. If the engine is missing, the panel shows what to install.
 
+## Annotations
+
+The annotation bar sits under the overlay header. Pick a tool, a color, and a stroke width, then draw on the capture.
+
+- Cursor leaves the page interactive.
+- Pen and highlighter draw freehand.
+- Arrow, rectangle, and ellipse call out a request or response.
+- Text adds a label.
+- Numbered step drops the next number in sequence.
+- Black box covers the content underneath.
+
+Undo, redo, and clear sit next to the width controls. Annotations are redrawn at export resolution, so they stay sharp in the PNG and in the clipboard copy.
+
 ## Installation
 
 ### From a release
@@ -65,7 +78,8 @@ This fork uses its own plugin identifier, so uninstall the official Screenshot M
 
 1. Open Replay, open a tab, and click Screenshot.
 2. Pick a view for the request and response.
-3. Hide headers, add highlights or redactions, then choose Save Screenshot or Copy To Clipboard.
+3. Hide headers, add highlights or redactions, and draw annotations if needed.
+4. Choose Save Screenshot or Copy To Clipboard.
 
 ## Development
 

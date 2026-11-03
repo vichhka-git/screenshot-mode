@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import Button from "primevue/button";
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 
+import AnnotationLayer from "./AnnotationLayer.vue";
+import AnnotationToolbar from "./AnnotationToolbar.vue";
 import { ContentPanel } from "./ContentPanel";
 import SettingsPanel from "./SettingsPanel.vue";
 import { useCrop } from "./useCrop";
@@ -24,6 +26,14 @@ import {
   type ScreenshotSettings,
   ViewMode,
 } from "@/types";
+import {
+  type Annotation,
+  type AnnotationCapture,
+  AnnotationTool,
+  type AnnotationTool as AnnotationToolType,
+  DEFAULT_ANNOTATION_COLOR,
+  DEFAULT_ANNOTATION_WIDTH,
+} from "@/utils/annotations";
 import { delay } from "@/utils/async";
 import { isPresent } from "@/utils/optional";
 import {
@@ -72,6 +82,23 @@ const selectedTemplateId = ref<string>("");
 const contentPanelComponentRef = ref<ContentPanelExposed | undefined>(
   undefined,
 );
+
+interface AnnotationLayerExposed {
+  commitPendingText: () => void;
+  getCapture: () => AnnotationCapture | undefined;
+}
+
+const annotationLayerRef = ref<AnnotationLayerExposed | undefined>(undefined);
+const annotations = ref<Annotation[]>([]);
+const annotationPast = ref<Annotation[][]>([]);
+const annotationFuture = ref<Annotation[][]>([]);
+const annotationTool = ref<AnnotationToolType>(AnnotationTool.Select);
+const annotationColor = ref(DEFAULT_ANNOTATION_COLOR);
+const annotationWidth = ref<number>(DEFAULT_ANNOTATION_WIDTH);
+
+const canUndoAnnotations = computed(() => annotationPast.value.length > 0);
+const canRedoAnnotations = computed(() => annotationFuture.value.length > 0);
+const hasAnnotations = computed(() => annotations.value.length > 0);
 
 const isVisible = computed(() => overlayState.value.isOpen);
 const sessionId = computed(() => overlayState.value.sessionId);
@@ -183,6 +210,54 @@ function handleBackdropClick(event: MouseEvent): void {
   }
 }
 
+function resetAnnotations(): void {
+  annotations.value = [];
+  annotationPast.value = [];
+  annotationFuture.value = [];
+  annotationTool.value = AnnotationTool.Select;
+}
+
+function commitAnnotations(next: Annotation[]): void {
+  annotationPast.value.push(annotations.value);
+  if (annotationPast.value.length > 100) {
+    annotationPast.value.shift();
+  }
+  annotationFuture.value = [];
+  annotations.value = next;
+}
+
+function handleAddAnnotation(annotation: Annotation): void {
+  commitAnnotations([...annotations.value, annotation]);
+}
+
+function handleUndoAnnotation(): void {
+  const previous = annotationPast.value.pop();
+  if (previous === undefined) {
+    return;
+  }
+
+  annotationFuture.value.unshift(annotations.value);
+  annotations.value = previous;
+}
+
+function handleRedoAnnotation(): void {
+  const next = annotationFuture.value.shift();
+  if (next === undefined) {
+    return;
+  }
+
+  annotationPast.value.push(annotations.value);
+  annotations.value = next;
+}
+
+function handleClearAnnotations(): void {
+  if (annotations.value.length === 0) {
+    return;
+  }
+
+  commitAnnotations([]);
+}
+
 function formatTimestamp(): string {
   return new Date().toLocaleString();
 }
@@ -193,14 +268,19 @@ async function handleScreenshot(action: "disk" | "clipboard"): Promise<void> {
     sdk.window.showToast("Content panel not ready", { variant: "error" });
     return;
   }
+
+  annotationLayerRef.value?.commitPendingText();
+  await nextTick();
   contentPanelComponentRef.value?.clearSelectionsForCapture();
   await delay(50);
 
+  const annotationCapture = annotationLayerRef.value?.getCapture();
+
   let result;
   if (action === "disk") {
-    result = await captureAndDownload(contentEl);
+    result = await captureAndDownload(contentEl, annotationCapture);
   } else {
-    result = await captureAndCopyToClipboard(contentEl);
+    result = await captureAndCopyToClipboard(contentEl, annotationCapture);
   }
 
   if (result.success) {
@@ -267,13 +347,21 @@ function handleAddHiddenHeader(headerName: string): void {
 
 watch([isVisible, tabKey], () => {
   if (isVisible.value) {
+    resetAnnotations();
     loadOverlayData();
+  }
+});
+
+watch([selectedRequestId, selectedResponseId], () => {
+  if (isVisible.value) {
+    resetAnnotations();
   }
 });
 
 onMounted(() => {
   document.addEventListener("keydown", handleKeydown);
   if (isVisible.value) {
+    resetAnnotations();
     loadOverlayData();
   }
 });
@@ -335,6 +423,21 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <AnnotationToolbar
+          :tool="annotationTool"
+          :color="annotationColor"
+          :stroke-width="annotationWidth"
+          :can-undo="canUndoAnnotations"
+          :can-redo="canRedoAnnotations"
+          :has-annotations="hasAnnotations"
+          @update:tool="annotationTool = $event"
+          @update:color="annotationColor = $event"
+          @update:stroke-width="annotationWidth = $event"
+          @undo="handleUndoAnnotation"
+          @redo="handleRedoAnnotation"
+          @clear="handleClearAnnotations"
+        />
+
         <div class="flex flex-1 overflow-hidden">
           <div
             class="w-1/4 min-w-64 overflow-y-auto border-r border-surface-600 p-4"
@@ -383,7 +486,18 @@ onUnmounted(() => {
                   }
                 "
                 @crop-drag-start="handleCropDragStart"
-              />
+              >
+                <template #annotation>
+                  <AnnotationLayer
+                    ref="annotationLayerRef"
+                    :annotations="annotations"
+                    :tool="annotationTool"
+                    :color="annotationColor"
+                    :stroke-width="annotationWidth"
+                    @add="handleAddAnnotation"
+                  />
+                </template>
+              </ContentPanel>
             </div>
             <button
               v-if="isPresent(cropMaxHeight)"
