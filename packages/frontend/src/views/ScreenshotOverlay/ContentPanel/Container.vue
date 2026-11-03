@@ -8,6 +8,7 @@ import {
   type ResponseMeta,
   type RuleTarget,
   type ScreenshotSettings,
+  type ViewMode,
   WidthMode,
 } from "@/types";
 
@@ -30,6 +31,8 @@ const {
   url,
   sni,
   splitterSizes,
+  selectedRequestId = undefined,
+  selectedResponseId = undefined,
   cropMaxHeight = undefined,
   responseInfo = undefined,
   timestamp = undefined,
@@ -40,6 +43,8 @@ const {
   url: string;
   sni: string | undefined;
   splitterSizes: [number, number];
+  selectedRequestId?: string;
+  selectedResponseId?: string;
   cropMaxHeight?: number;
   responseInfo?: ResponseMeta;
   timestamp?: string;
@@ -52,6 +57,9 @@ const emit = defineEmits<{
   updateSplitterSizes: [sizes: [number, number]];
   cropDragStart: [event: MouseEvent];
 }>();
+
+const requestView = defineModel<ViewMode>("requestView", { required: true });
+const responseView = defineModel<ViewMode>("responseView", { required: true });
 
 const contentStyle = computed(() => {
   const width = settings.width;
@@ -95,10 +103,14 @@ defineExpose({
       <UrlHeader :url="url" :sni="sni" />
       <DataDisplay
         ref="dataDisplayRef"
+        v-model:request-view="requestView"
+        v-model:response-view="responseView"
         :request-raw="requestRaw"
         :response-raw="responseRaw"
         :settings="settings"
         :splitter-sizes="splitterSizes"
+        :selected-request-id="selectedRequestId"
+        :selected-response-id="selectedResponseId"
         :response-info="responseInfo"
         :timestamp="timestamp"
         @add-highlight="(regex, target) => emit('addHighlight', regex, target)"

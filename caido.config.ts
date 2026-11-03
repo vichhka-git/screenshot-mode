@@ -13,7 +13,7 @@ export default defineConfig({
   id,
   name: "Screenshot Mode",
   description: "Plugin for taking pretty screenshots in Caido",
-  version: "0.8.3",
+  version: "0.9.0",
   author: {
     name: "Caido Labs Inc.",
     email: "dev@caido.io",

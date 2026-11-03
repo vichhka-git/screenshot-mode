@@ -16,17 +16,7 @@ ${scope} .c-card {
   height: 100% !important;
 }
 ${scope} .c-card__header {
-  display: flex !important;
-  flex-shrink: 0 !important;
-  border-bottom: 0.15em solid rgb(0 0 0 / 0.2) !important;
-}
-${scope} .c-editor-http-request__header,
-${scope} .c-editor-http-response__header {
-  display: flex !important;
-  align-items: center !important;
-  padding: 0.5rem 1rem !important;
-  font-size: 0.875rem !important;
-  font-weight: 500 !important;
+  display: none !important;
 }
 ${scope} .c-card__footer {
   display: none !important;

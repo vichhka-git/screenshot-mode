@@ -4,7 +4,7 @@ import { ref } from "vue";
 
 import { useTemplatesStore } from "./templates";
 
-import { type ScreenshotSettings } from "@/types";
+import { type ScreenshotSettings, ViewMode } from "@/types";
 import { isPresent } from "@/utils/optional";
 
 interface CropSizes {
@@ -19,6 +19,8 @@ export const useTabsStore = defineStore("tabs", () => {
   const tabSplitterSizes = ref(new Map<string, [number, number]>());
   const tabCropSizes = ref(new Map<string, CropSizes>());
   const tabSelectedTemplateId = ref(new Map<string, string>());
+  const tabRequestViews = ref(new Map<string, ViewMode>());
+  const tabResponseViews = ref(new Map<string, ViewMode>());
 
   const getTabSettings = (sessionId: string): ScreenshotSettings => {
     const existing = tabSettings.value.get(sessionId);
@@ -81,6 +83,20 @@ export const useTabsStore = defineStore("tabs", () => {
     tabSelectedTemplateId.value.set(sessionId, templateId);
   };
 
+  const getRequestView = (sessionId: string): ViewMode => {
+    return tabRequestViews.value.get(sessionId) ?? ViewMode.Pretty;
+  };
+  const setRequestView = (sessionId: string, view: ViewMode): void => {
+    tabRequestViews.value.set(sessionId, view);
+  };
+
+  const getResponseView = (sessionId: string): ViewMode => {
+    return tabResponseViews.value.get(sessionId) ?? ViewMode.Pretty;
+  };
+  const setResponseView = (sessionId: string, view: ViewMode): void => {
+    tabResponseViews.value.set(sessionId, view);
+  };
+
   return {
     getTabSettings,
     updateTabSettings,
@@ -91,5 +107,9 @@ export const useTabsStore = defineStore("tabs", () => {
     setCropSizes,
     getSelectedTemplateId,
     setSelectedTemplateId,
+    getRequestView,
+    setRequestView,
+    getResponseView,
+    setResponseView,
   };
 });
