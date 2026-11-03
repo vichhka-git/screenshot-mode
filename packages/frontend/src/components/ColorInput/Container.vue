@@ -35,6 +35,7 @@ function handleChange(value: Hsb): void {
     :model-value="hsb"
     format="hsb"
     :append-to="appendTo"
+    :base-z-index="600"
     @update:model-value="handleChange"
   />
 </template>

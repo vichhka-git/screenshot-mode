@@ -16,17 +16,17 @@ import {
   AnnotationTool,
   type AnnotationTool as AnnotationToolType,
   drawAnnotations,
-  getAnnotationFontSize,
   getRect,
   isShapeAnnotation,
   nextStepNumber,
 } from "@/utils/annotations";
 
-const { annotations, tool, color, strokeWidth } = defineProps<{
+const { annotations, tool, color, strokeWidth, fontSize } = defineProps<{
   annotations: Annotation[];
   tool: AnnotationToolType;
   color: string;
   strokeWidth: number;
+  fontSize: number;
 }>();
 
 const emit = defineEmits<{
@@ -55,7 +55,7 @@ const textInputStyle = computed<CSSProperties>(() => {
     top: `${input.y * 100}%`,
     color,
     borderColor: color,
-    fontSize: `${getAnnotationFontSize(strokeWidth)}px`,
+    fontSize: `${fontSize}px`,
   };
 });
 
@@ -133,7 +133,7 @@ function commitText(): void {
     text,
     color,
     width: strokeWidth,
-    fontSize: getAnnotationFontSize(strokeWidth),
+    fontSize,
   });
 }
 
@@ -154,7 +154,7 @@ function addStep(point: AnnotationPoint): void {
     number: nextStepNumber(annotations),
     color,
     width: strokeWidth,
-    fontSize: getAnnotationFontSize(strokeWidth),
+    fontSize,
   });
 }
 

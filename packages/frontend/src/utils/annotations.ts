@@ -71,19 +71,28 @@ export const ANNOTATION_COLORS = [
 ] as const;
 
 export const ANNOTATION_WIDTHS = [
-  { value: 2, label: "Thin" },
-  { value: 4, label: "Medium" },
-  { value: 7, label: "Thick" },
+  { value: 1, label: "1 px" },
+  { value: 2, label: "2 px" },
+  { value: 4, label: "4 px" },
+  { value: 6, label: "6 px" },
+  { value: 8, label: "8 px" },
+  { value: 12, label: "12 px" },
+] as const;
+
+export const ANNOTATION_FONT_SIZES = [
+  { value: 12, label: "12 px" },
+  { value: 16, label: "16 px" },
+  { value: 20, label: "20 px" },
+  { value: 24, label: "24 px" },
+  { value: 32, label: "32 px" },
+  { value: 40, label: "40 px" },
 ] as const;
 
 export const DEFAULT_ANNOTATION_COLOR = "#ef4444";
 export const DEFAULT_ANNOTATION_WIDTH = 4;
+export const DEFAULT_ANNOTATION_FONT_SIZE = 20;
 
 const FONT_FAMILY = `Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`;
-
-export function getAnnotationFontSize(width: number): number {
-  return 12 + width * 3;
-}
 
 export function getRect(
   start: AnnotationPoint,
@@ -299,7 +308,7 @@ function drawStep(
 ): void {
   const x = annotation.position.x * width;
   const y = annotation.position.y * height;
-  const radius = Math.max(11, annotation.fontSize * 0.7) * scale;
+  const radius = Math.max(10, annotation.fontSize * 0.7) * scale;
 
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);

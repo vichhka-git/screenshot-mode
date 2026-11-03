@@ -37,7 +37,7 @@ Caido's rendering engine is required. Install it from Settings > Rendering in Ca
 
 ## Annotations
 
-The annotation bar sits under the overlay header. Pick a tool, a color, and a stroke width, then draw on the capture.
+The annotation bar sits under the overlay header. Pick a tool, a color, a stroke size, and a text size, then draw on the capture.
 
 - Cursor leaves the page interactive.
 - Pen and highlighter draw freehand.
@@ -46,7 +46,7 @@ The annotation bar sits under the overlay header. Pick a tool, a color, and a st
 - Numbered step drops the next number in sequence.
 - Black box covers the content underneath.
 
-Undo, redo, and clear sit next to the width controls. Annotations are redrawn at export resolution, so they stay sharp in the PNG and in the clipboard copy.
+Use the swatches or the custom color picker for any color. The size menu sets line weight, and the text size menu sets labels and numbered steps. Undo, redo, and clear sit at the end of the bar. Annotations are redrawn at export resolution, so they stay sharp in the PNG and in the clipboard copy.
 
 ## Installation
 

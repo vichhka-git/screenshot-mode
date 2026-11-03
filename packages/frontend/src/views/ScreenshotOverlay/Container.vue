@@ -32,6 +32,7 @@ import {
   AnnotationTool,
   type AnnotationTool as AnnotationToolType,
   DEFAULT_ANNOTATION_COLOR,
+  DEFAULT_ANNOTATION_FONT_SIZE,
   DEFAULT_ANNOTATION_WIDTH,
 } from "@/utils/annotations";
 import { delay } from "@/utils/async";
@@ -95,6 +96,7 @@ const annotationFuture = ref<Annotation[][]>([]);
 const annotationTool = ref<AnnotationToolType>(AnnotationTool.Select);
 const annotationColor = ref(DEFAULT_ANNOTATION_COLOR);
 const annotationWidth = ref<number>(DEFAULT_ANNOTATION_WIDTH);
+const annotationFontSize = ref<number>(DEFAULT_ANNOTATION_FONT_SIZE);
 
 const canUndoAnnotations = computed(() => annotationPast.value.length > 0);
 const canRedoAnnotations = computed(() => annotationFuture.value.length > 0);
@@ -427,12 +429,14 @@ onUnmounted(() => {
           :tool="annotationTool"
           :color="annotationColor"
           :stroke-width="annotationWidth"
+          :font-size="annotationFontSize"
           :can-undo="canUndoAnnotations"
           :can-redo="canRedoAnnotations"
           :has-annotations="hasAnnotations"
           @update:tool="annotationTool = $event"
           @update:color="annotationColor = $event"
           @update:stroke-width="annotationWidth = $event"
+          @update:font-size="annotationFontSize = $event"
           @undo="handleUndoAnnotation"
           @redo="handleRedoAnnotation"
           @clear="handleClearAnnotations"
@@ -494,6 +498,7 @@ onUnmounted(() => {
                     :tool="annotationTool"
                     :color="annotationColor"
                     :stroke-width="annotationWidth"
+                    :font-size="annotationFontSize"
                     @add="handleAddAnnotation"
                   />
                 </template>

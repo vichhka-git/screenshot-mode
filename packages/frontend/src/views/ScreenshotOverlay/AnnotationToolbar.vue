@@ -1,16 +1,21 @@
 <script setup lang="ts">
+import Select from "primevue/select";
+
+import { ColorInput } from "@/components/ColorInput";
 import {
   ANNOTATION_COLORS,
+  ANNOTATION_FONT_SIZES,
   ANNOTATION_WIDTHS,
   AnnotationTool,
   type AnnotationTool as AnnotationToolType,
 } from "@/utils/annotations";
 
-const { tool, color, strokeWidth, canUndo, canRedo, hasAnnotations } =
+const { tool, color, strokeWidth, fontSize, canUndo, canRedo, hasAnnotations } =
   defineProps<{
     tool: AnnotationToolType;
     color: string;
     strokeWidth: number;
+    fontSize: number;
     canUndo: boolean;
     canRedo: boolean;
     hasAnnotations: boolean;
@@ -20,12 +25,18 @@ const emit = defineEmits<{
   "update:tool": [tool: AnnotationToolType];
   "update:color": [color: string];
   "update:strokeWidth": [width: number];
+  "update:fontSize": [size: number];
   undo: [];
   redo: [];
   clear: [];
 }>();
 
-const tools: { value: AnnotationToolType; icon: string; label: string }[] = [
+const tools: {
+  value: AnnotationToolType;
+  icon: string;
+  label: string;
+  rotation?: number;
+}[] = [
   {
     value: AnnotationTool.Select,
     icon: "fas fa-arrow-pointer",
@@ -39,8 +50,9 @@ const tools: { value: AnnotationToolType; icon: string; label: string }[] = [
   },
   {
     value: AnnotationTool.Arrow,
-    icon: "fas fa-arrow-up-right",
+    icon: "fas fa-arrow-right",
     label: "Arrow",
+    rotation: -45,
   },
   {
     value: AnnotationTool.Rectangle,
@@ -60,6 +72,12 @@ const tools: { value: AnnotationToolType; icon: string; label: string }[] = [
     label: "Black box redaction",
   },
 ];
+
+function widthLabel(value: number): string {
+  return (
+    ANNOTATION_WIDTHS.find((item) => item.value === value)?.label ?? "Size"
+  );
+}
 </script>
 
 <template>
@@ -83,7 +101,14 @@ const tools: { value: AnnotationToolType; icon: string; label: string }[] = [
       :aria-pressed="tool === item.value"
       @click="emit('update:tool', item.value)"
     >
-      <i :class="item.icon" />
+      <i
+        :class="item.icon"
+        :style="
+          item.rotation === undefined
+            ? undefined
+            : { transform: `rotate(${item.rotation}deg)` }
+        "
+      />
     </button>
 
     <span class="mx-1.5 h-5 w-px bg-surface-600" />
@@ -105,24 +130,63 @@ const tools: { value: AnnotationToolType; icon: string; label: string }[] = [
       @click="emit('update:color', item.value)"
     />
 
+    <span class="ml-1 flex items-center" title="Custom color">
+      <ColorInput
+        :color="color"
+        append-to="body"
+        @update="emit('update:color', $event)"
+      />
+    </span>
+
     <span class="mx-1.5 h-5 w-px bg-surface-600" />
 
-    <button
-      v-for="item in ANNOTATION_WIDTHS"
-      :key="item.value"
-      type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50"
-      :class="{ 'bg-surface-600 text-surface-50': strokeWidth === item.value }"
-      :title="item.label"
-      :aria-label="item.label"
-      :aria-pressed="strokeWidth === item.value"
-      @click="emit('update:strokeWidth', item.value)"
+    <Select
+      :model-value="strokeWidth"
+      :options="ANNOTATION_WIDTHS"
+      option-label="label"
+      option-value="value"
+      class="w-28"
+      title="Annotation size"
+      aria-label="Annotation size"
+      @update:model-value="emit('update:strokeWidth', $event)"
     >
-      <span
-        class="block w-4 rounded-full bg-current"
-        :style="{ height: `${item.value}px` }"
-      />
-    </button>
+      <template #value="{ value }">
+        <span class="flex items-center gap-2">
+          <span
+            class="block w-4 rounded-full bg-current"
+            :style="{ height: `${value}px` }"
+          />
+          <span>{{ widthLabel(value) }}</span>
+        </span>
+      </template>
+      <template #option="{ option }">
+        <span class="flex items-center gap-2">
+          <span
+            class="block w-4 rounded-full bg-current"
+            :style="{ height: `${option.value}px` }"
+          />
+          <span>{{ option.label }}</span>
+        </span>
+      </template>
+    </Select>
+
+    <Select
+      :model-value="fontSize"
+      :options="ANNOTATION_FONT_SIZES"
+      option-label="label"
+      option-value="value"
+      class="w-32"
+      title="Text size"
+      aria-label="Text size"
+      @update:model-value="emit('update:fontSize', $event)"
+    >
+      <template #value="{ value }">
+        <span class="flex items-center gap-1.5">
+          <span class="text-[10px] font-semibold uppercase">Aa</span>
+          <span>{{ value }} px</span>
+        </span>
+      </template>
+    </Select>
 
     <span class="mx-1.5 h-5 w-px bg-surface-600" />
 

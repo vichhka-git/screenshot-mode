@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   type Annotation,
-  getAnnotationFontSize,
   getRect,
   isShapeAnnotation,
   nextStepNumber,
@@ -49,13 +48,6 @@ describe("nextStepNumber", () => {
     };
 
     expect(nextStepNumber([arrow, step(1)])).toBe(2);
-  });
-});
-
-describe("getAnnotationFontSize", () => {
-  it("grows with the stroke width", () => {
-    expect(getAnnotationFontSize(2)).toBe(18);
-    expect(getAnnotationFontSize(7)).toBe(33);
   });
 });
 
