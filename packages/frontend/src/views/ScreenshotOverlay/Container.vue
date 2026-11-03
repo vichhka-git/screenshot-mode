@@ -232,6 +232,19 @@ function handleAddAnnotation(annotation: Annotation): void {
   commitAnnotations([...annotations.value, annotation]);
 }
 
+function handleUpdateAnnotation(annotation: Annotation): void {
+  const index = annotations.value.findIndex(
+    (item) => item.id === annotation.id,
+  );
+  if (index === -1) {
+    return;
+  }
+
+  const next = [...annotations.value];
+  next[index] = annotation;
+  commitAnnotations(next);
+}
+
 function handleUndoAnnotation(): void {
   const previous = annotationPast.value.pop();
   if (previous === undefined) {
@@ -500,6 +513,7 @@ onUnmounted(() => {
                     :stroke-width="annotationWidth"
                     :font-size="annotationFontSize"
                     @add="handleAddAnnotation"
+                    @update="handleUpdateAnnotation"
                   />
                 </template>
               </ContentPanel>

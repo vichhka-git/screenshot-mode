@@ -40,7 +40,7 @@ const tools: {
   {
     value: AnnotationTool.Select,
     icon: "fas fa-arrow-pointer",
-    label: "Cursor",
+    label: "Select",
   },
   { value: AnnotationTool.Pen, icon: "fas fa-pen", label: "Pen" },
   {
