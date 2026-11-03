@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { StateEffect } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
+import SelectButton from "primevue/selectbutton";
 import Splitter from "primevue/splitter";
 import SplitterPanel from "primevue/splitterpanel";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+
+import ResponsePreview from "./ResponsePreview.vue";
 
 import { SelectionContextMenu } from "@/components/SelectionContextMenu";
 import { useSDK } from "@/plugins/sdk";
@@ -12,10 +15,13 @@ import {
   type ResponseMeta,
   RuleTarget,
   type ScreenshotSettings,
+  ViewMode,
 } from "@/types";
 import { applyDecorations } from "@/utils/decorations";
 import { mountEditor } from "@/utils/editor";
+import { formatHttpMessage } from "@/utils/format";
 import { filterHeaders } from "@/utils/headers";
+import { getContentType, splitHttpMessage } from "@/utils/http";
 import { isPresent } from "@/utils/optional";
 
 const {
@@ -23,6 +29,8 @@ const {
   responseRaw,
   settings,
   splitterSizes,
+  selectedRequestId = undefined,
+  selectedResponseId = undefined,
   responseInfo = undefined,
   timestamp = undefined,
 } = defineProps<{
@@ -30,6 +38,8 @@ const {
   responseRaw: string;
   settings: ScreenshotSettings;
   splitterSizes: [number, number];
+  selectedRequestId?: string;
+  selectedResponseId?: string;
   responseInfo?: ResponseMeta;
   timestamp?: string;
 }>();
@@ -40,6 +50,27 @@ const emit = defineEmits<{
   addHiddenHeader: [headerName: string];
   updateSplitterSizes: [sizes: [number, number]];
 }>();
+
+const requestView = defineModel<ViewMode>("requestView", { required: true });
+const responseView = defineModel<ViewMode>("responseView", { required: true });
+
+const requestViewOptions = [
+  { label: "Pretty", value: ViewMode.Pretty },
+  { label: "Raw", value: ViewMode.Raw },
+];
+
+const responseViewOptions = [
+  { label: "Pretty", value: ViewMode.Pretty },
+  { label: "Raw", value: ViewMode.Raw },
+  { label: "Preview", value: ViewMode.Preview },
+];
+
+const responseContentType = computed(() =>
+  getContentType(splitHttpMessage(responseRaw).head),
+);
+const requestContentType = computed(() =>
+  getContentType(splitHttpMessage(requestRaw).head),
+);
 
 const sdk = useSDK();
 
@@ -73,34 +104,44 @@ function updateEditors(): void {
   ];
   const filteredRequest = filterHeaders(requestRaw, requestHeaderRules);
   const filteredResponse = filterHeaders(responseRaw, responseHeaderRules);
+  const formattedRequest = formatHttpMessage(
+    filteredRequest,
+    requestView.value,
+    requestContentType.value,
+  );
+  const formattedResponse = formatHttpMessage(
+    filteredResponse,
+    responseView.value,
+    responseContentType.value,
+  );
 
-  const requestView = requestEditor.getEditorView();
-  const responseView = responseEditor.getEditorView();
+  const requestViewInstance = requestEditor.getEditorView();
+  const responseViewInstance = responseEditor.getEditorView();
 
-  requestView.dispatch({
+  requestViewInstance.dispatch({
     changes: {
       from: 0,
-      to: requestView.state.doc.length,
-      insert: filteredRequest,
+      to: requestViewInstance.state.doc.length,
+      insert: formattedRequest,
     },
   });
 
-  responseView.dispatch({
+  responseViewInstance.dispatch({
     changes: {
       from: 0,
-      to: responseView.state.doc.length,
-      insert: filteredResponse,
+      to: responseViewInstance.state.doc.length,
+      insert: formattedResponse,
     },
   });
 
   applyDecorations(
-    requestView,
+    requestViewInstance,
     settings.highlights.filter((h) => h.target === RuleTarget.Request),
     settings.redactions.filter((r) => r.target === RuleTarget.Request),
   );
 
   applyDecorations(
-    responseView,
+    responseViewInstance,
     settings.highlights.filter((h) => h.target === RuleTarget.Response),
     settings.redactions.filter((r) => r.target === RuleTarget.Response),
   );
@@ -113,12 +154,20 @@ watch(
     settings.headersToHide,
     settings.highlights,
     settings.redactions,
+    requestView.value,
+    responseView.value,
   ],
   () => {
     updateEditors();
   },
   { deep: true },
 );
+
+watch([requestView, responseView], async () => {
+  await nextTick();
+  requestEditor.getEditorView().requestMeasure();
+  responseEditor.getEditorView().requestMeasure();
+});
 
 watch(
   () => settings.width,
@@ -232,14 +281,14 @@ onUnmounted(() => {
 });
 
 function clearSelectionsForCapture(): void {
-  const requestView = requestEditor.getEditorView();
-  const responseView = responseEditor.getEditorView();
+  const requestViewInstance = requestEditor.getEditorView();
+  const responseViewInstance = responseEditor.getEditorView();
 
-  requestView.dispatch({ selection: { anchor: 0 } });
-  responseView.dispatch({ selection: { anchor: 0 } });
+  requestViewInstance.dispatch({ selection: { anchor: 0 } });
+  responseViewInstance.dispatch({ selection: { anchor: 0 } });
 
-  requestView.contentDOM.blur();
-  responseView.contentDOM.blur();
+  requestViewInstance.contentDOM.blur();
+  responseViewInstance.contentDOM.blur();
 }
 
 defineExpose({
@@ -259,14 +308,59 @@ defineExpose({
       :min-size="10"
       class="overflow-hidden p-0"
     >
-      <div ref="requestEditorContainer" class="h-full w-full" />
+      <div class="flex h-full min-h-0 w-full flex-col overflow-hidden">
+        <div
+          class="flex shrink-0 items-center justify-between gap-2 border-b border-surface-600 bg-surface-800 px-3 py-1.5"
+        >
+          <span class="text-sm font-medium text-surface-100">Request</span>
+          <SelectButton
+            v-model="requestView"
+            :options="requestViewOptions"
+            option-label="label"
+            option-value="value"
+            :allow-empty="false"
+            size="small"
+          />
+        </div>
+        <div class="min-h-0 flex-1 overflow-hidden">
+          <div ref="requestEditorContainer" class="h-full w-full" />
+        </div>
+      </div>
     </SplitterPanel>
     <SplitterPanel
       :size="splitterSizes[1]"
       :min-size="10"
       class="overflow-hidden p-0"
     >
-      <div ref="responseEditorContainer" class="h-full w-full" />
+      <div class="flex h-full min-h-0 w-full flex-col overflow-hidden">
+        <div
+          class="flex shrink-0 items-center justify-between gap-2 border-b border-surface-600 bg-surface-800 px-3 py-1.5"
+        >
+          <span class="text-sm font-medium text-surface-100">Response</span>
+          <SelectButton
+            v-model="responseView"
+            :options="responseViewOptions"
+            option-label="label"
+            option-value="value"
+            :allow-empty="false"
+            size="small"
+          />
+        </div>
+        <div class="relative min-h-0 flex-1 overflow-hidden">
+          <div
+            v-show="responseView !== ViewMode.Preview"
+            ref="responseEditorContainer"
+            class="h-full w-full"
+          />
+          <ResponsePreview
+            v-if="responseView === ViewMode.Preview"
+            :request-id="selectedRequestId"
+            :response-id="selectedResponseId"
+            :response-raw="responseRaw"
+            class="h-full w-full"
+          />
+        </div>
+      </div>
     </SplitterPanel>
   </Splitter>
 

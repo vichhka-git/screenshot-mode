@@ -8,21 +8,21 @@ import tailwindcss from "tailwindcss";
 // @ts-expect-error no declared types at this time
 import tailwindPrimeui from "tailwindcss-primeui";
 
-const id = "screenshot-mode";
+const id = "screenshot-mode-plusplus";
 export default defineConfig({
   id,
-  name: "Screenshot Mode",
+  name: "Screenshot Mode++",
   description: "Plugin for taking pretty screenshots in Caido",
-  version: "0.8.3",
+  version: "0.8.4",
   author: {
-    name: "Caido Labs Inc.",
-    email: "dev@caido.io",
-    url: "https://caido.io",
+    name: "vichhka-git",
+    email: "51940586+vichhka-git@users.noreply.github.com",
+    url: "https://github.com/vichhka-git",
   },
   plugins: [
     {
       kind: "frontend",
-      id: "screenshot-mode-frontend",
+      id: "screenshot-mode-plusplus-frontend",
       root: "packages/frontend",
       vite: {
         plugins: [vue()],

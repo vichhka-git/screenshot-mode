@@ -37,7 +37,7 @@ onMounted(() => {
       <template #content>
         <div class="flex items-center gap-1">
           <span class="text-base font-bold text-surface-50"
-            >Screenshot Mode</span
+            >Screenshot Mode++</span
           >
           <Menubar :model="menuItems" />
         </div>

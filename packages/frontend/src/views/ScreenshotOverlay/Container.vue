@@ -22,6 +22,7 @@ import {
   type RedactionRule,
   type RuleTarget,
   type ScreenshotSettings,
+  ViewMode,
 } from "@/types";
 import { delay } from "@/utils/async";
 import { isPresent } from "@/utils/optional";
@@ -56,6 +57,10 @@ const {
   setSplitterSizes,
   getSelectedTemplateId,
   setSelectedTemplateId,
+  getRequestView,
+  setRequestView,
+  getResponseView,
+  setResponseView,
 } = useTabsStore();
 const templatesStore = useTemplatesStore();
 const { defaultTemplateId } = storeToRefs(templatesStore);
@@ -81,6 +86,30 @@ const splitterSizes = computed(() => {
   const key = tabKey.value;
   if (key === undefined) return [50, 50] as [number, number];
   return getSplitterSizes(key);
+});
+const requestView = computed<ViewMode>({
+  get: () => {
+    const key = tabKey.value;
+    if (key === undefined) return ViewMode.Pretty;
+    return getRequestView(key);
+  },
+  set: (mode) => {
+    const key = tabKey.value;
+    if (key === undefined) return;
+    setRequestView(key, mode);
+  },
+});
+const responseView = computed<ViewMode>({
+  get: () => {
+    const key = tabKey.value;
+    if (key === undefined) return ViewMode.Pretty;
+    return getResponseView(key);
+  },
+  set: (mode) => {
+    const key = tabKey.value;
+    if (key === undefined) return;
+    setResponseView(key, mode);
+  },
 });
 
 const {
@@ -269,7 +298,7 @@ onUnmounted(() => {
         >
           <div class="flex items-center gap-3">
             <h2 class="text-lg font-semibold text-surface-50">
-              Screenshot Mode
+              Screenshot Mode++
             </h2>
             <Button
               label="Save Screenshot"
@@ -327,12 +356,16 @@ onUnmounted(() => {
               <ContentPanel
                 v-if="isPresent(settings)"
                 ref="contentPanelComponentRef"
+                v-model:request-view="requestView"
+                v-model:response-view="responseView"
                 :settings="settings"
                 :request-raw="requestRaw"
                 :response-raw="responseRaw"
                 :url="urlInfo.url"
                 :sni="urlInfo.sni"
                 :splitter-sizes="splitterSizes"
+                :selected-request-id="selectedRequestId"
+                :selected-response-id="selectedResponseId"
                 :crop-max-height="cropMaxHeight"
                 :response-info="
                   settings.showResponseInfo ? responseInfo : undefined

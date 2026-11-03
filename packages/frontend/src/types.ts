@@ -67,6 +67,13 @@ export const Alteration = {
 } as const;
 export type Alteration = (typeof Alteration)[keyof typeof Alteration];
 
+export const ViewMode = {
+  Pretty: "pretty",
+  Raw: "raw",
+  Preview: "preview",
+} as const;
+export type ViewMode = (typeof ViewMode)[keyof typeof ViewMode];
+
 // --- Types ---
 
 export type ResponseMeta = {

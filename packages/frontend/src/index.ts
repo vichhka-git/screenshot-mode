@@ -11,9 +11,10 @@ import type { FrontendSDK } from "./types";
 import { isPresent } from "./utils/optional";
 import App from "./views/App.vue";
 
-const COMMAND_OPEN_SCREENSHOT = "screenshot-mode.open";
-const COMMAND_SCREENSHOT_REQUEST = "screenshot-mode.screenshot-request";
-const PLUGIN_PATH = "/screenshot-mode";
+const COMMAND_OPEN_SCREENSHOT = "screenshot-mode-plusplus.open";
+const COMMAND_SCREENSHOT_REQUEST =
+  "screenshot-mode-plusplus.screenshot-request";
+const PLUGIN_PATH = "/screenshot-mode-plusplus";
 
 export const init = (sdk: FrontendSDK) => {
   const app = createApp(App);
@@ -42,13 +43,13 @@ export const init = (sdk: FrontendSDK) => {
     body: root,
   });
 
-  sdk.sidebar.registerItem("Screenshot Mode", PLUGIN_PATH, {
+  sdk.sidebar.registerItem("Screenshot Mode++", PLUGIN_PATH, {
     icon: "fas fa-camera",
   });
 
   sdk.commands.register(COMMAND_OPEN_SCREENSHOT, {
-    name: "Open Screenshot Mode",
-    group: "Screenshot Mode",
+    name: "Open Screenshot Mode++",
+    group: "Screenshot Mode++",
     run: () => {
       const session = sdk.replay.getCurrentSession();
       if (isPresent(session)) {
@@ -76,7 +77,7 @@ export const init = (sdk: FrontendSDK) => {
 
   sdk.commands.register(COMMAND_SCREENSHOT_REQUEST, {
     name: "Screenshot",
-    group: "Screenshot Mode",
+    group: "Screenshot Mode++",
     run: (context) => {
       if (context.type === "RequestRowContext") {
         const request = context.requests[0];
