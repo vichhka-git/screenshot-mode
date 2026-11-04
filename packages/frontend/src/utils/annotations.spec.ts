@@ -5,6 +5,7 @@ import {
   getRect,
   getStepRadius,
   getTextFont,
+  getTextPadding,
   isShapeAnnotation,
   nextStepNumber,
 } from "@/utils/annotations";
@@ -77,6 +78,13 @@ describe("getTextFont", () => {
 
   it("falls back to the default annotation font", () => {
     expect(getTextFont({ fontSize: 20 })).toContain("400 20px Inter");
+  });
+});
+
+describe("getTextPadding", () => {
+  it("keeps a minimum and grows with the font size", () => {
+    expect(getTextPadding(6)).toBe(4);
+    expect(getTextPadding(40)).toBeGreaterThan(getTextPadding(20));
   });
 });
 

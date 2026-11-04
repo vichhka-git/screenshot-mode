@@ -19,6 +19,7 @@ import {
   getRect,
   getStepRadius,
   getTextFont,
+  getTextPadding,
   isShapeAnnotation,
   nextStepNumber,
   type TextAnnotation,
@@ -34,6 +35,8 @@ const {
   fontWeight,
   fontStyle,
   underline,
+  indent,
+  boxed,
 } = defineProps<{
   annotations: Annotation[];
   tool: AnnotationToolType;
@@ -44,6 +47,8 @@ const {
   fontWeight: number;
   fontStyle: "normal" | "italic";
   underline: boolean;
+  indent: number;
+  boxed: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -70,6 +75,8 @@ type TextDraft = {
   fontWeight: number;
   fontStyle: "normal" | "italic";
   underline: boolean;
+  indent: number;
+  boxed: boolean;
 };
 
 const textDraft = ref<TextDraft>();
@@ -114,7 +121,7 @@ const textInputStyle = computed<CSSProperties>(() => {
   }
 
   return {
-    left: `${input.x * 100}%`,
+    left: `calc(${input.x * 100}% + ${input.indent}px)`,
     top: `${input.y * 100}%`,
     color: input.color,
     borderColor: input.color,
@@ -123,6 +130,7 @@ const textInputStyle = computed<CSSProperties>(() => {
     fontWeight: input.fontWeight,
     fontStyle: input.fontStyle,
     textDecoration: input.underline ? "underline" : "none",
+    borderRadius: input.boxed ? "0.35rem" : undefined,
   };
 });
 
@@ -220,9 +228,20 @@ function getAnnotationBounds(annotation: Annotation): Bounds | undefined {
     const fontSize = annotation.fontSize * scale;
     ctx.font = getTextFont(annotation, scale);
     const textWidth = ctx.measureText(annotation.text).width;
+    const indent = (annotation.indent ?? 0) * scale;
+    const padding = getTextPadding(annotation.fontSize) * scale;
+
+    if (annotation.boxed === true) {
+      return {
+        x: annotation.position.x * width - padding,
+        y: annotation.position.y * height - padding,
+        width: textWidth + indent + padding * 2,
+        height: fontSize * 1.25 + padding * 2,
+      };
+    }
 
     return {
-      x: annotation.position.x * width,
+      x: annotation.position.x * width + indent,
       y: annotation.position.y * height,
       width: Math.max(textWidth, fontSize),
       height: fontSize * 1.25,
@@ -674,10 +693,16 @@ function commitText(): void {
       emit("remove", [input.id]);
       return;
     }
-    if (original.text === text) {
+    if (
+      original.text === text &&
+      (original.indent ?? 0) === input.indent &&
+      (original.boxed ?? false) === input.boxed
+    ) {
       return;
     }
-    emit("update", [{ ...original, text }]);
+    emit("update", [
+      { ...original, text, indent: input.indent, boxed: input.boxed },
+    ]);
     return;
   }
 
@@ -697,6 +722,8 @@ function commitText(): void {
     fontWeight: input.fontWeight,
     fontStyle: input.fontStyle,
     underline: input.underline,
+    indent: input.indent,
+    boxed: input.boxed,
   });
 }
 
@@ -720,6 +747,8 @@ function openTextInput(
     fontWeight: annotation?.fontWeight ?? fontWeight,
     fontStyle: annotation?.fontStyle ?? fontStyle,
     underline: annotation?.underline ?? underline,
+    indent: annotation?.indent ?? indent,
+    boxed: annotation?.boxed ?? boxed,
   };
   void nextTick(() => {
     const input = textInputRef.value;

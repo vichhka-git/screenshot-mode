@@ -22,6 +22,8 @@ const {
   fontWeight,
   fontStyle,
   underline,
+  indent,
+  boxed,
   canUndo,
   canRedo,
   hasAnnotations,
@@ -34,6 +36,8 @@ const {
   fontWeight: number;
   fontStyle: "normal" | "italic";
   underline: boolean;
+  indent: number;
+  boxed: boolean;
   canUndo: boolean;
   canRedo: boolean;
   hasAnnotations: boolean;
@@ -48,6 +52,8 @@ const emit = defineEmits<{
   "update:fontWeight": [weight: number];
   "update:fontStyle": [style: "normal" | "italic"];
   "update:underline": [underline: boolean];
+  "update:indent": [indent: number];
+  "update:boxed": [boxed: boolean];
   undo: [];
   redo: [];
   clear: [];
@@ -111,6 +117,10 @@ function handleFontSize(value: unknown): void {
   emit("update:fontSize", Math.min(300, Math.max(1, Math.round(value))));
 }
 
+function changeIndent(delta: number): void {
+  emit("update:indent", Math.min(200, Math.max(0, indent + delta)));
+}
+
 function fontFamilyLabel(value: string): string {
   return (
     ANNOTATION_FONT_FAMILIES.find((family) => family.value === value)?.label ??
@@ -168,7 +178,7 @@ function activeClass(active: boolean): string {
 
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:opacity-60"
+      class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:text-surface-500 disabled:opacity-100"
       title="Undo (Cmd/Ctrl+Z)"
       aria-label="Undo"
       :disabled="!canUndo"
@@ -178,7 +188,7 @@ function activeClass(active: boolean): string {
     </button>
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:opacity-60"
+      class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:text-surface-500 disabled:opacity-100"
       title="Redo (Cmd/Ctrl+Shift+Z)"
       aria-label="Redo"
       :disabled="!canRedo"
@@ -306,7 +316,7 @@ function activeClass(active: boolean): string {
                 @update:model-value="handleFontSize"
               />
               <span
-                class="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 text-xs text-surface-400"
+                class="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-xs text-surface-400"
               >
                 px
               </span>
@@ -359,6 +369,52 @@ function activeClass(active: boolean): string {
                 @click="emit('update:underline', !underline)"
               >
                 <span class="underline">U</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <span
+              class="text-[10px] font-semibold uppercase tracking-widest text-surface-500"
+            >
+              Label
+            </span>
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:text-surface-500"
+                title="Decrease indent"
+                aria-label="Decrease indent"
+                :disabled="indent <= 0"
+                @click="changeIndent(-8)"
+              >
+                <i class="fas fa-outdent" />
+              </button>
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:text-surface-500"
+                title="Increase indent"
+                aria-label="Increase indent"
+                :disabled="indent >= 200"
+                @click="changeIndent(8)"
+              >
+                <i class="fas fa-indent" />
+              </button>
+              <span class="w-14 text-center text-[10px] text-surface-400">
+                {{ indent }} px
+              </span>
+              <span class="mx-1 h-5 w-px bg-surface-600" />
+              <button
+                type="button"
+                class="flex h-8 items-center gap-1 rounded-md border-0 px-2 text-xs"
+                :class="activeClass(boxed)"
+                title="Rounded box"
+                aria-label="Rounded box"
+                :aria-pressed="boxed"
+                @click="emit('update:boxed', !boxed)"
+              >
+                <i class="far fa-square" />
+                <span>Box</span>
               </button>
             </div>
           </div>

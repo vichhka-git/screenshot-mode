@@ -31,11 +31,13 @@ import {
   type AnnotationCapture,
   AnnotationTool,
   type AnnotationTool as AnnotationToolType,
+  DEFAULT_ANNOTATION_BOXED,
   DEFAULT_ANNOTATION_COLOR,
   DEFAULT_ANNOTATION_FONT_FAMILY,
   DEFAULT_ANNOTATION_FONT_SIZE,
   DEFAULT_ANNOTATION_FONT_STYLE,
   DEFAULT_ANNOTATION_FONT_WEIGHT,
+  DEFAULT_ANNOTATION_INDENT,
   DEFAULT_ANNOTATION_UNDERLINE,
   DEFAULT_ANNOTATION_WIDTH,
 } from "@/utils/annotations";
@@ -107,6 +109,8 @@ const annotationFontStyle = ref<"normal" | "italic">(
   DEFAULT_ANNOTATION_FONT_STYLE,
 );
 const annotationUnderline = ref<boolean>(DEFAULT_ANNOTATION_UNDERLINE);
+const annotationIndent = ref<number>(DEFAULT_ANNOTATION_INDENT);
+const annotationBoxed = ref<boolean>(DEFAULT_ANNOTATION_BOXED);
 
 const canUndoAnnotations = computed(() => annotationPast.value.length > 0);
 const canRedoAnnotations = computed(() => annotationFuture.value.length > 0);
@@ -516,6 +520,8 @@ onUnmounted(() => {
           :font-weight="annotationFontWeight"
           :font-style="annotationFontStyle"
           :underline="annotationUnderline"
+          :indent="annotationIndent"
+          :boxed="annotationBoxed"
           :can-undo="canUndoAnnotations"
           :can-redo="canRedoAnnotations"
           :has-annotations="hasAnnotations"
@@ -527,6 +533,8 @@ onUnmounted(() => {
           @update:font-weight="annotationFontWeight = $event"
           @update:font-style="annotationFontStyle = $event"
           @update:underline="annotationUnderline = $event"
+          @update:indent="annotationIndent = $event"
+          @update:boxed="annotationBoxed = $event"
           @undo="handleUndoAnnotation"
           @redo="handleRedoAnnotation"
           @clear="handleClearAnnotations"
@@ -593,6 +601,8 @@ onUnmounted(() => {
                     :font-weight="annotationFontWeight"
                     :font-style="annotationFontStyle"
                     :underline="annotationUnderline"
+                    :indent="annotationIndent"
+                    :boxed="annotationBoxed"
                     @add="handleAddAnnotation"
                     @update="handleUpdateAnnotations"
                     @remove="handleRemoveAnnotations"

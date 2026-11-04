@@ -43,6 +43,8 @@ export type TextAnnotation = AnnotationBase & {
   fontWeight?: number;
   fontStyle?: "normal" | "italic";
   underline?: boolean;
+  indent?: number;
+  boxed?: boolean;
 };
 
 type StepAnnotation = AnnotationBase & {
@@ -104,6 +106,8 @@ export const DEFAULT_ANNOTATION_FONT_FAMILY = ANNOTATION_FONT_FAMILIES[0].value;
 export const DEFAULT_ANNOTATION_FONT_WEIGHT = 400;
 export const DEFAULT_ANNOTATION_FONT_STYLE = "normal";
 export const DEFAULT_ANNOTATION_UNDERLINE = false;
+export const DEFAULT_ANNOTATION_INDENT = 0;
+export const DEFAULT_ANNOTATION_BOXED = false;
 
 export const ANNOTATION_WIDTHS = [
   { value: 1, label: "1 px" },
@@ -139,6 +143,10 @@ export function getTextFont(
   scale = 1,
 ): string {
   return `${style.fontStyle ?? "normal"} ${style.fontWeight ?? 400} ${style.fontSize * scale}px ${style.fontFamily ?? DEFAULT_ANNOTATION_FONT_FAMILY}`;
+}
+
+export function getTextPadding(fontSize: number): number {
+  return Math.max(4, fontSize * 0.28);
 }
 
 export function getRect(
@@ -329,16 +337,40 @@ function drawText(
   const fontSize = annotation.fontSize * scale;
   const x = annotation.position.x * width;
   const y = annotation.position.y * height;
+  const indent = (annotation.indent ?? 0) * scale;
+  const padding = getTextPadding(annotation.fontSize) * scale;
   ctx.font = getTextFont(annotation, scale);
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
+  const textWidth = ctx.measureText(annotation.text).width;
+  const textX = x + indent;
+
+  if (annotation.boxed === true) {
+    const boxWidth = textWidth + indent + padding * 2;
+    const boxHeight = fontSize * 1.25 + padding * 2;
+    ctx.beginPath();
+    ctx.roundRect(
+      x - padding,
+      y - padding,
+      boxWidth,
+      boxHeight,
+      Math.max(4 * scale, fontSize * 0.35),
+    );
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = annotation.color;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = Math.max(1, fontSize * 0.05);
+    ctx.strokeStyle = annotation.color;
+    ctx.stroke();
+  }
+
   ctx.fillStyle = annotation.color;
-  ctx.fillText(annotation.text, x, y);
+  ctx.fillText(annotation.text, textX, y);
 
   if (annotation.underline === true) {
-    const textWidth = ctx.measureText(annotation.text).width;
     ctx.fillRect(
-      x,
+      textX,
       y + fontSize * 1.04,
       textWidth,
       Math.max(1, fontSize * 0.06),
