@@ -911,12 +911,13 @@ function startDrawing(event: PointerEvent, point: AnnotationPoint): void {
       width: strokeWidth,
       filled: line ? undefined : filled,
       dashed,
-      arrowStart: line ? arrowStart : undefined,
-      arrowEnd: line
-        ? tool === AnnotationTool.Arrow || tool === AnnotationTool.OutlineArrow
+      arrowStart: tool === AnnotationTool.Line ? arrowStart : undefined,
+      arrowEnd:
+        tool === AnnotationTool.Line
           ? arrowEnd
-          : false
-        : undefined,
+          : tool === AnnotationTool.Arrow
+            ? true
+            : undefined,
     };
   } else {
     return;

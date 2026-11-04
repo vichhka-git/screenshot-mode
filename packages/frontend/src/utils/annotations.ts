@@ -445,9 +445,11 @@ function drawLineShape(
   }
 
   const angle = Math.atan2(endY - startY, endX - startX);
-  const defaultEnd = annotation.type !== "line";
-  const drawStart = annotation.arrowStart === true;
-  const drawEnd = (annotation.arrowEnd ?? defaultEnd) === true;
+  const drawStart =
+    annotation.type === "line" && annotation.arrowStart === true;
+  const drawEnd =
+    annotation.type === "arrow" ||
+    (annotation.type === "line" && annotation.arrowEnd === true);
   const headLength = getArrowHeadLength(annotation, scale, length);
 
   setShapeStroke(ctx, annotation, scale);

@@ -280,7 +280,7 @@ function activeClass(active: boolean): string {
             <i class="fas fa-border-style" />
             Dashed
           </button>
-          <template v-if="activeShape === 'line' || activeShape === 'arrow'">
+          <template v-if="activeShape === 'line'">
             <button
               type="button"
               class="flex h-8 items-center justify-center gap-1 rounded-md border-0 text-xs"
