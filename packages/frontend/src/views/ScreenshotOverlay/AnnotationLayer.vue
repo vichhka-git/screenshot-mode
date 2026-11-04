@@ -825,7 +825,6 @@ function beginDrag(
     handle,
     moved: false,
   };
-  canvasRef.value?.setPointerCapture(event.pointerId);
   draw();
 }
 
@@ -895,47 +894,7 @@ function startSelection(
     additive,
     moved: false,
   };
-  canvasRef.value?.setPointerCapture(event.pointerId);
   draw();
-}
-
-function updateCursor(event: PointerEvent): void {
-  const canvas = canvasRef.value;
-  if (canvas === undefined || tool !== AnnotationTool.Select) {
-    return;
-  }
-
-  const point = getPoint(event);
-  const selected = getDisplayedSelection();
-  let cursor = "crosshair";
-
-  if (selected.length > 0) {
-    const groupBounds = getSelectionBounds(selected);
-    const canvasBounds =
-      groupBounds === undefined ? undefined : toCanvasBounds(groupBounds);
-    const handle =
-      canvasBounds === undefined ? undefined : getHandleAt(canvasBounds, point);
-
-    if (handle !== undefined) {
-      cursor =
-        handle === "nw" || handle === "se" ? "nwse-resize" : "nesw-resize";
-    } else if (
-      selected.some((annotation) => isPointInAnnotation(annotation, point))
-    ) {
-      cursor = "move";
-    }
-  }
-
-  if (cursor === "crosshair") {
-    const hit = annotations.some((annotation) =>
-      isPointInAnnotation(annotation, point),
-    );
-    if (hit) {
-      cursor = "move";
-    }
-  }
-
-  canvas.style.cursor = cursor;
 }
 
 function handlePointerDown(event: PointerEvent): void {
@@ -948,17 +907,6 @@ function handlePointerDown(event: PointerEvent): void {
   }
 
   const point = getPoint(event);
-
-  if (tool === AnnotationTool.Select) {
-    event.preventDefault();
-    event.stopPropagation();
-    startSelection(
-      event,
-      point,
-      event.shiftKey || event.metaKey || event.ctrlKey,
-    );
-    return;
-  }
 
   if (!isDrawingTool.value) {
     return;
@@ -1025,7 +973,6 @@ function handlePointerMove(event: PointerEvent): void {
 
   const annotation = draft.value;
   if (!drawing.value || annotation === undefined) {
-    updateCursor(event);
     return;
   }
 
@@ -1160,20 +1107,102 @@ function isStyleUi(target: EventTarget | undefined): boolean {
 }
 
 function handleDocumentPointerDown(event: PointerEvent): void {
-  if (textDraft.value === undefined) {
-    return;
+  const target = event.target;
+  const targetElement = target instanceof Element ? target : undefined;
+  const inTextInput =
+    targetElement !== undefined &&
+    targetElement.closest("[data-annotation-text-input]") !== null;
+  const styleUi = isStyleUi(target ?? undefined);
+
+  if (textDraft.value !== undefined && !inTextInput && !styleUi) {
+    commitText();
   }
 
-  const target = event.target;
   if (
-    target instanceof Element &&
-    (target.closest("[data-annotation-text-input]") !== null ||
-      isStyleUi(target))
+    tool !== AnnotationTool.Select ||
+    !event.isPrimary ||
+    event.button !== 0 ||
+    inTextInput ||
+    styleUi
   ) {
     return;
   }
 
-  commitText();
+  const canvas = canvasRef.value;
+  if (canvas === undefined) {
+    return;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  if (
+    event.clientX < rect.left ||
+    event.clientX > rect.right ||
+    event.clientY < rect.top ||
+    event.clientY > rect.bottom
+  ) {
+    return;
+  }
+
+  const point = getPoint(event);
+  const selected = getDisplayedSelection();
+  const selectionBounds = getSelectionBounds(selected);
+  const canvasBounds =
+    selectionBounds === undefined ? undefined : toCanvasBounds(selectionBounds);
+  const handle =
+    canvasBounds === undefined ? undefined : getHandleAt(canvasBounds, point);
+  const hit = [...annotations]
+    .reverse()
+    .find((annotation) => isPointInAnnotation(annotation, point));
+
+  if (
+    handle !== undefined ||
+    hit !== undefined ||
+    (event.shiftKey && annotations.length > 0)
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    window.getSelection()?.removeAllRanges();
+    startSelection(
+      event,
+      point,
+      event.shiftKey || event.metaKey || event.ctrlKey,
+    );
+    return;
+  }
+
+  selectedIds.value = [];
+  lastTextClick = undefined;
+  draw();
+}
+
+function handleWindowPointerMove(event: PointerEvent): void {
+  if (
+    tool !== AnnotationTool.Select ||
+    (drag.value === undefined && marquee.value === undefined)
+  ) {
+    return;
+  }
+
+  handlePointerMove(event);
+}
+
+function handleWindowPointerUp(event: PointerEvent): void {
+  if (
+    tool !== AnnotationTool.Select ||
+    (drag.value === undefined && marquee.value === undefined)
+  ) {
+    return;
+  }
+
+  finishDrawing(event);
+}
+
+function handleWindowPointerCancel(event: PointerEvent): void {
+  if (tool !== AnnotationTool.Select) {
+    return;
+  }
+
+  handlePointerCancel(event);
 }
 
 function handleKeyDown(event: KeyboardEvent): void {
@@ -1322,7 +1351,12 @@ onMounted(() => {
 
   window.addEventListener("resize", resizeCanvas);
   window.addEventListener("keydown", handleKeyDown);
-  window.addEventListener("pointerdown", handleDocumentPointerDown);
+  window.addEventListener("pointerdown", handleDocumentPointerDown, true);
+  window.addEventListener("pointermove", handleWindowPointerMove, {
+    passive: false,
+  });
+  window.addEventListener("pointerup", handleWindowPointerUp);
+  window.addEventListener("pointercancel", handleWindowPointerCancel);
   resizeCanvas();
 });
 
@@ -1330,7 +1364,10 @@ onUnmounted(() => {
   resizeObserver?.disconnect();
   window.removeEventListener("resize", resizeCanvas);
   window.removeEventListener("keydown", handleKeyDown);
-  window.removeEventListener("pointerdown", handleDocumentPointerDown);
+  window.removeEventListener("pointerdown", handleDocumentPointerDown, true);
+  window.removeEventListener("pointermove", handleWindowPointerMove);
+  window.removeEventListener("pointerup", handleWindowPointerUp);
+  window.removeEventListener("pointercancel", handleWindowPointerCancel);
 });
 </script>
 
@@ -1345,9 +1382,7 @@ onUnmounted(() => {
       :class="
         isDrawingTool
           ? 'pointer-events-auto cursor-crosshair'
-          : annotations.length > 0
-            ? 'pointer-events-auto cursor-default'
-            : 'pointer-events-none'
+          : 'pointer-events-none'
       "
       @pointerdown="handlePointerDown"
       @pointermove="handlePointerMove"

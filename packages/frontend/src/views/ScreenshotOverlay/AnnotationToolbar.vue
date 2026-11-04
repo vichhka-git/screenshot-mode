@@ -132,6 +132,12 @@ function toggleFontPopover(event: Event): void {
   fontPopover.value?.toggle(event);
 }
 
+function toolIcon(item: (typeof tools)[number]): string {
+  return item.value === AnnotationTool.Select && hasAnnotations
+    ? "fas fa-vector-square"
+    : item.icon;
+}
+
 function activeClass(active: boolean): string {
   return active
     ? "bg-surface-600 text-surface-50 ring-2 ring-inset ring-surface-400"
@@ -161,7 +167,7 @@ function activeClass(active: boolean): string {
       @click="emit('update:tool', item.value)"
     >
       <i
-        :class="item.icon"
+        :class="toolIcon(item)"
         :style="
           item.rotation === undefined
             ? undefined
