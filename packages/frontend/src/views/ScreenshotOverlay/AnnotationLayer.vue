@@ -90,13 +90,26 @@ let lastTextClick: { id: string; at: number } | undefined;
 let resizeObserver: ResizeObserver | undefined;
 
 type ResizeHandle = "nw" | "ne" | "se" | "sw";
+type ArrowHandle = "start" | "end" | "center";
+type ArrowAnnotation = Annotation & {
+  type: "arrow";
+  start: AnnotationPoint;
+  end: AnnotationPoint;
+};
+
+function isArrowAnnotation(
+  annotation: Annotation,
+): annotation is ArrowAnnotation {
+  return annotation.type === "arrow";
+}
 
 type DragState = {
-  kind: "move" | "resize";
+  kind: "move" | "resize" | "endpoint";
   start: AnnotationPoint;
   originals: Annotation[];
   currents: Annotation[];
   handle?: ResizeHandle;
+  endpoint?: "start" | "end";
   moved: boolean;
 };
 
@@ -275,6 +288,42 @@ function getNormalizedBounds(annotation: Annotation): Bounds | undefined {
     width: bounds.width / canvas.width,
     height: bounds.height / canvas.height,
   };
+}
+
+function getArrowHandleAt(
+  annotation: ArrowAnnotation,
+  point: AnnotationPoint,
+): ArrowHandle | undefined {
+  const canvas = canvasRef.value;
+  if (canvas === undefined) {
+    return undefined;
+  }
+
+  const scale = getScale()?.scale ?? 1;
+  const px = point.x * canvas.width;
+  const py = point.y * canvas.height;
+  const radius = 12 * scale;
+  const start = {
+    x: annotation.start.x * canvas.width,
+    y: annotation.start.y * canvas.height,
+  };
+  const end = {
+    x: annotation.end.x * canvas.width,
+    y: annotation.end.y * canvas.height,
+  };
+  const center = {
+    x: (start.x + end.x) / 2,
+    y: (start.y + end.y) / 2,
+  };
+  const handles: { handle: ArrowHandle; x: number; y: number }[] = [
+    { handle: "start", ...start },
+    { handle: "end", ...end },
+    { handle: "center", ...center },
+  ];
+
+  return handles.find(
+    (handle) => Math.hypot(px - handle.x, py - handle.y) <= radius,
+  )?.handle;
 }
 
 function getHandleAt(
@@ -504,6 +553,48 @@ function resizeSelection(
   );
 }
 
+function drawArrowSelection(annotation: ArrowAnnotation): void {
+  const canvas = canvasRef.value;
+  const ctx = canvas?.getContext("2d");
+  if (canvas === undefined || ctx === null || ctx === undefined) {
+    return;
+  }
+
+  const scale = getScale()?.scale ?? 1;
+  const start = {
+    x: annotation.start.x * canvas.width,
+    y: annotation.start.y * canvas.height,
+  };
+  const end = {
+    x: annotation.end.x * canvas.width,
+    y: annotation.end.y * canvas.height,
+  };
+  const center = {
+    x: (start.x + end.x) / 2,
+    y: (start.y + end.y) / 2,
+  };
+
+  ctx.save();
+  for (const point of [start, end]) {
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 6 * scale, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.lineWidth = 2 * scale;
+    ctx.strokeStyle = "#2563eb";
+    ctx.stroke();
+  }
+
+  ctx.beginPath();
+  ctx.arc(center.x, center.y, 4.5 * scale, 0, Math.PI * 2);
+  ctx.fillStyle = "#22c55e";
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 1.5 * scale;
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawSelectionBounds(
   bounds: Bounds,
   handles: boolean,
@@ -569,6 +660,11 @@ function drawSelection(): void {
   }
 
   if (selected.length === 1) {
+    if (isArrowAnnotation(selected[0]!)) {
+      drawArrowSelection(selected[0]);
+      return;
+    }
+
     const bounds = getAnnotationBounds(selected[0]!);
     if (bounds !== undefined) {
       drawSelectionBounds(bounds, true);
@@ -711,8 +807,9 @@ function commitText(): void {
     return;
   }
 
+  const id = crypto.randomUUID();
   emit("add", {
-    id: crypto.randomUUID(),
+    id,
     type: "text",
     position: { x: input.x, y: input.y },
     text,
@@ -760,9 +857,20 @@ function openTextInput(
   });
 }
 
+function selectCreatedAnnotation(id: string): void {
+  void nextTick(() => {
+    if (!annotations.some((annotation) => annotation.id === id)) {
+      return;
+    }
+    selectedIds.value = [id];
+    draw();
+  });
+}
+
 function addStep(point: AnnotationPoint): void {
+  const id = crypto.randomUUID();
   emit("add", {
-    id: crypto.randomUUID(),
+    id,
     type: "step",
     position: point,
     number: nextStepNumber(annotations),
@@ -771,6 +879,7 @@ function addStep(point: AnnotationPoint): void {
     fontSize,
     fontFamily,
   });
+  selectCreatedAnnotation(id);
 }
 
 function startDrawing(event: PointerEvent, point: AnnotationPoint): void {
@@ -812,8 +921,9 @@ function beginDrag(
   event: PointerEvent,
   annotationsToDrag: Annotation[],
   point: AnnotationPoint,
-  kind: "move" | "resize",
+  kind: "move" | "resize" | "endpoint",
   handle?: ResizeHandle,
+  endpoint?: "start" | "end",
 ): void {
   selectedIds.value = annotationsToDrag.map((annotation) => annotation.id);
   const originals = annotationsToDrag.map(cloneAnnotation);
@@ -823,6 +933,7 @@ function beginDrag(
     originals,
     currents: originals.map(cloneAnnotation),
     handle,
+    endpoint,
     moved: false,
   };
   draw();
@@ -833,16 +944,37 @@ function startSelection(
   point: AnnotationPoint,
   additive: boolean,
 ): void {
-  const selected = getSelectionBounds(getDisplayedSelection());
+  const displayed = getDisplayedSelection();
+  const singleArrow =
+    displayed.length === 1 && isArrowAnnotation(displayed[0]!)
+      ? displayed[0]
+      : undefined;
+
+  if (singleArrow !== undefined) {
+    const arrowHandle = getArrowHandleAt(singleArrow, point);
+    if (arrowHandle === "start" || arrowHandle === "end") {
+      beginDrag(
+        event,
+        [singleArrow],
+        point,
+        "endpoint",
+        undefined,
+        arrowHandle,
+      );
+      return;
+    }
+  }
+
+  const selected = getSelectionBounds(displayed);
   const selectedBounds =
     selected === undefined ? undefined : toCanvasBounds(selected);
   const selectedHandle =
-    selectedBounds === undefined
+    singleArrow !== undefined || selectedBounds === undefined
       ? undefined
       : getHandleAt(selectedBounds, point);
 
   if (selectedHandle !== undefined) {
-    beginDrag(event, getDisplayedSelection(), point, "resize", selectedHandle);
+    beginDrag(event, displayed, point, "resize", selectedHandle);
     return;
   }
 
@@ -958,6 +1090,16 @@ function handlePointerMove(event: PointerEvent): void {
         dragState.originals,
         point.x - dragState.start.x,
         point.y - dragState.start.y,
+      );
+    } else if (
+      dragState.kind === "endpoint" &&
+      dragState.endpoint !== undefined
+    ) {
+      const endpoint = dragState.endpoint;
+      dragState.currents = dragState.originals.map((annotation) =>
+        annotation.type === "arrow"
+          ? { ...annotation, [endpoint]: point }
+          : annotation,
       );
     } else if (dragState.handle !== undefined) {
       dragState.currents = resizeSelection(
@@ -1081,6 +1223,9 @@ function finishDrawing(event: PointerEvent): void {
   }
 
   emit("add", annotation);
+  if (annotation.type !== "pen" && annotation.type !== "highlighter") {
+    selectCreatedAnnotation(annotation.id);
+  }
   draw();
 }
 
@@ -1101,7 +1246,7 @@ function isStyleUi(target: EventTarget | undefined): boolean {
   return (
     target instanceof Element &&
     target.closest(
-      "[data-annotation-style-ui], .p-popover, .p-select-overlay, .p-colorpicker-panel",
+      "[data-annotation-style-ui], .annotation-style-ui, .p-popover, .p-select-overlay, .p-colorpicker-panel",
     ) !== null
   );
 }
@@ -1145,16 +1290,27 @@ function handleDocumentPointerDown(event: PointerEvent): void {
 
   const point = getPoint(event);
   const selected = getDisplayedSelection();
+  const singleArrow =
+    selected.length === 1 && isArrowAnnotation(selected[0]!)
+      ? selected[0]
+      : undefined;
+  const arrowHandle =
+    singleArrow === undefined
+      ? undefined
+      : getArrowHandleAt(singleArrow, point);
   const selectionBounds = getSelectionBounds(selected);
   const canvasBounds =
     selectionBounds === undefined ? undefined : toCanvasBounds(selectionBounds);
   const handle =
-    canvasBounds === undefined ? undefined : getHandleAt(canvasBounds, point);
+    singleArrow !== undefined || canvasBounds === undefined
+      ? undefined
+      : getHandleAt(canvasBounds, point);
   const hit = [...annotations]
     .reverse()
     .find((annotation) => isPointInAnnotation(annotation, point));
 
   if (
+    arrowHandle !== undefined ||
     handle !== undefined ||
     hit !== undefined ||
     (event.shiftKey && annotations.length > 0)

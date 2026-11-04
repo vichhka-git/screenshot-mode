@@ -36,6 +36,7 @@ function handleChange(value: Hsb): void {
     format="hsb"
     :append-to="appendTo"
     :base-z-index="600"
+    panel-class="annotation-style-ui"
     @update:model-value="handleChange"
   />
 </template>

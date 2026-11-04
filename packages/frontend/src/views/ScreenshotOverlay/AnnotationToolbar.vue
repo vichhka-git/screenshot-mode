@@ -243,6 +243,7 @@ function activeClass(active: boolean): string {
       option-label="label"
       option-value="value"
       class="w-28"
+      panel-class="annotation-style-ui"
       title="Annotation size"
       aria-label="Annotation size"
       data-annotation-style-ui
@@ -294,6 +295,7 @@ function activeClass(active: boolean): string {
               option-label="label"
               option-value="value"
               class="w-full"
+              panel-class="annotation-style-ui"
               aria-label="Font family"
               @update:model-value="emit('update:fontFamily', $event)"
             >
