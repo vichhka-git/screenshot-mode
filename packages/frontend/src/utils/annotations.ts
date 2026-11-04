@@ -316,10 +316,7 @@ function getArrowHeadLength(
   scale: number,
   lineLength: number,
 ): number {
-  return Math.min(
-    Math.max(14, annotation.width * 6) * scale,
-    lineLength * 0.35,
-  );
+  return Math.min(Math.max(4, annotation.width * 4) * scale, lineLength * 0.4);
 }
 
 function drawArrowHead(
