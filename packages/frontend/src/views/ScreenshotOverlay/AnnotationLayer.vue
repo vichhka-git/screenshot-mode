@@ -18,33 +18,66 @@ import {
   drawAnnotations,
   getRect,
   getStepRadius,
+  getTextFont,
   isShapeAnnotation,
   nextStepNumber,
+  type TextAnnotation,
 } from "@/utils/annotations";
 
-const { annotations, tool, color, strokeWidth, fontSize } = defineProps<{
+const {
+  annotations,
+  tool,
+  color,
+  strokeWidth,
+  fontSize,
+  fontFamily,
+  fontWeight,
+  fontStyle,
+  underline,
+} = defineProps<{
   annotations: Annotation[];
   tool: AnnotationToolType;
   color: string;
   strokeWidth: number;
   fontSize: number;
+  fontFamily: string;
+  fontWeight: number;
+  fontStyle: "normal" | "italic";
+  underline: boolean;
 }>();
 
 const emit = defineEmits<{
   add: [annotation: Annotation];
   update: [annotations: Annotation[]];
   remove: [ids: string[]];
+  cancel: [];
 }>();
 
 const containerRef = ref<HTMLElement>();
 const canvasRef = ref<HTMLCanvasElement>();
 const textInputRef = ref<HTMLInputElement>();
 const draft = ref<Annotation>();
-const textDraft = ref<{ x: number; y: number; text: string }>();
+
+type TextDraft = {
+  id?: string;
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  width: number;
+  fontSize: number;
+  fontFamily: string;
+  fontWeight: number;
+  fontStyle: "normal" | "italic";
+  underline: boolean;
+};
+
+const textDraft = ref<TextDraft>();
 const drawing = ref(false);
 const selectedIds = ref<string[]>([]);
 const drag = ref<DragState>();
 const marquee = ref<MarqueeState>();
+let lastTextClick: { id: string; at: number } | undefined;
 
 let resizeObserver: ResizeObserver | undefined;
 
@@ -83,9 +116,13 @@ const textInputStyle = computed<CSSProperties>(() => {
   return {
     left: `${input.x * 100}%`,
     top: `${input.y * 100}%`,
-    color,
-    borderColor: color,
-    fontSize: `${fontSize}px`,
+    color: input.color,
+    borderColor: input.color,
+    fontSize: `${input.fontSize}px`,
+    fontFamily: input.fontFamily,
+    fontWeight: input.fontWeight,
+    fontStyle: input.fontStyle,
+    textDecoration: input.underline ? "underline" : "none",
   };
 });
 
@@ -181,14 +218,14 @@ function getAnnotationBounds(annotation: Annotation): Bounds | undefined {
 
   if (annotation.type === "text") {
     const fontSize = annotation.fontSize * scale;
-    ctx.font = `600 ${fontSize}px Inter, ui-sans-serif, system-ui, sans-serif`;
+    ctx.font = getTextFont(annotation, scale);
     const textWidth = ctx.measureText(annotation.text).width;
 
     return {
       x: annotation.position.x * width,
       y: annotation.position.y * height,
       width: Math.max(textWidth, fontSize),
-      height: fontSize * 1.2,
+      height: fontSize * 1.25,
     };
   }
 
@@ -624,6 +661,26 @@ function commitText(): void {
 
   textDraft.value = undefined;
   const text = input.text.trim();
+
+  if (input.id !== undefined) {
+    const original = annotations.find(
+      (annotation): annotation is TextAnnotation =>
+        annotation.id === input.id && annotation.type === "text",
+    );
+    if (original === undefined) {
+      return;
+    }
+    if (text === "") {
+      emit("remove", [input.id]);
+      return;
+    }
+    if (original.text === text) {
+      return;
+    }
+    emit("update", [{ ...original, text }]);
+    return;
+  }
+
   if (text === "") {
     return;
   }
@@ -633,9 +690,13 @@ function commitText(): void {
     type: "text",
     position: { x: input.x, y: input.y },
     text,
-    color,
-    width: strokeWidth,
-    fontSize,
+    color: input.color,
+    width: input.width,
+    fontSize: input.fontSize,
+    fontFamily: input.fontFamily,
+    fontWeight: input.fontWeight,
+    fontStyle: input.fontStyle,
+    underline: input.underline,
   });
 }
 
@@ -643,9 +704,30 @@ function cancelText(): void {
   textDraft.value = undefined;
 }
 
-function openTextInput(point: AnnotationPoint): void {
-  textDraft.value = { x: point.x, y: point.y, text: "" };
-  void nextTick(() => textInputRef.value?.focus());
+function openTextInput(
+  point: AnnotationPoint,
+  annotation?: TextAnnotation,
+): void {
+  textDraft.value = {
+    id: annotation?.id,
+    x: annotation?.position.x ?? point.x,
+    y: annotation?.position.y ?? point.y,
+    text: annotation?.text ?? "",
+    color: annotation?.color ?? color,
+    width: annotation?.width ?? strokeWidth,
+    fontSize: annotation?.fontSize ?? fontSize,
+    fontFamily: annotation?.fontFamily ?? fontFamily,
+    fontWeight: annotation?.fontWeight ?? fontWeight,
+    fontStyle: annotation?.fontStyle ?? fontStyle,
+    underline: annotation?.underline ?? underline,
+  };
+  void nextTick(() => {
+    const input = textInputRef.value;
+    input?.focus();
+    if (annotation !== undefined) {
+      input?.select();
+    }
+  });
 }
 
 function addStep(point: AnnotationPoint): void {
@@ -657,6 +739,7 @@ function addStep(point: AnnotationPoint): void {
     color,
     width: strokeWidth,
     fontSize,
+    fontFamily,
   });
 }
 
@@ -739,6 +822,24 @@ function startSelection(
     .find((annotation) => isPointInAnnotation(annotation, point));
 
   if (hit !== undefined) {
+    if (hit.type === "text" && !additive) {
+      const now = performance.now();
+      if (
+        lastTextClick !== undefined &&
+        lastTextClick.id === hit.id &&
+        now - lastTextClick.at < 400
+      ) {
+        lastTextClick = undefined;
+        selectedIds.value = [hit.id];
+        openTextInput(hit.position, hit);
+        draw();
+        return;
+      }
+      lastTextClick = { id: hit.id, at: now };
+    } else if (!additive) {
+      lastTextClick = undefined;
+    }
+
     if (additive) {
       selectedIds.value = selectedIds.value.includes(hit.id)
         ? selectedIds.value.filter((id) => id !== hit.id)
@@ -757,6 +858,7 @@ function startSelection(
   if (!additive) {
     selectedIds.value = [];
   }
+  lastTextClick = undefined;
   marquee.value = {
     start: point,
     end: point,
@@ -960,6 +1062,7 @@ function finishDrawing(event: PointerEvent): void {
 
     drag.value = undefined;
     if (state.moved) {
+      lastTextClick = undefined;
       emit("update", state.currents);
     }
     draw();
@@ -1043,6 +1146,32 @@ function handleKeyDown(event: KeyboardEvent): void {
   draw();
 }
 
+function cancelCurrentTool(): void {
+  textDraft.value = undefined;
+  draft.value = undefined;
+  drawing.value = false;
+  drag.value = undefined;
+  marquee.value = undefined;
+  selectedIds.value = [];
+  lastTextClick = undefined;
+  emit("cancel");
+  draw();
+}
+
+function handleContextMenu(event: MouseEvent): void {
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (tool === AnnotationTool.Select) {
+    textDraft.value = undefined;
+    selectedIds.value = [];
+    draw();
+    return;
+  }
+
+  cancelCurrentTool();
+}
+
 function commitPendingText(): void {
   commitText();
 }
@@ -1088,6 +1217,7 @@ watch(
     draft.value = undefined;
     textDraft.value = undefined;
     drawing.value = false;
+    lastTextClick = undefined;
     draw();
   },
 );
@@ -1130,6 +1260,7 @@ onUnmounted(() => {
       @pointermove="handlePointerMove"
       @pointerup="finishDrawing"
       @pointercancel="handlePointerCancel"
+      @contextmenu="handleContextMenu"
     />
     <input
       v-if="textDraft !== undefined"
@@ -1139,10 +1270,11 @@ onUnmounted(() => {
       placeholder="Label"
       spellcheck="false"
       aria-label="Annotation text"
-      class="screenshot-annotation-ui pointer-events-auto absolute z-30 min-w-32 rounded border-2 bg-surface-900/95 px-1 py-0.5 font-semibold shadow-lg outline-none"
+      class="screenshot-annotation-ui pointer-events-auto absolute z-30 min-w-32 rounded border-2 bg-surface-900/95 px-1 py-0.5 shadow-lg outline-none"
       :style="textInputStyle"
       @pointerdown.stop
       @click.stop
+      @contextmenu.prevent.stop="cancelCurrentTool"
       @keydown.enter.prevent.stop="commitText"
       @keydown.esc.prevent.stop="cancelText"
       @blur="commitText"

@@ -34,11 +34,15 @@ type ShapeAnnotation = AnnotationBase & {
   end: AnnotationPoint;
 };
 
-type TextAnnotation = AnnotationBase & {
+export type TextAnnotation = AnnotationBase & {
   type: "text";
   position: AnnotationPoint;
   text: string;
   fontSize: number;
+  fontFamily?: string;
+  fontWeight?: number;
+  fontStyle?: "normal" | "italic";
+  underline?: boolean;
 };
 
 type StepAnnotation = AnnotationBase & {
@@ -46,6 +50,7 @@ type StepAnnotation = AnnotationBase & {
   position: AnnotationPoint;
   number: number;
   fontSize: number;
+  fontFamily?: string;
 };
 
 export type Annotation =
@@ -69,6 +74,36 @@ export const ANNOTATION_COLORS = [
   { value: "#0f172a", label: "Black" },
   { value: "#ffffff", label: "White" },
 ] as const;
+
+export const ANNOTATION_FONT_FAMILIES = [
+  {
+    label: "Inter",
+    value: `Inter, ui-sans-serif, system-ui, sans-serif`,
+  },
+  {
+    label: "Helvetica",
+    value: `"Helvetica Neue", Helvetica, Arial, sans-serif`,
+  },
+  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
+  {
+    label: "Georgia",
+    value: `Georgia, "Times New Roman", serif`,
+  },
+  {
+    label: "Times New Roman",
+    value: `"Times New Roman", Times, serif`,
+  },
+  {
+    label: "Courier New",
+    value: `"Courier New", Courier, monospace`,
+  },
+  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
+] as const;
+
+export const DEFAULT_ANNOTATION_FONT_FAMILY = ANNOTATION_FONT_FAMILIES[0].value;
+export const DEFAULT_ANNOTATION_FONT_WEIGHT = 400;
+export const DEFAULT_ANNOTATION_FONT_STYLE = "normal";
+export const DEFAULT_ANNOTATION_UNDERLINE = false;
 
 export const ANNOTATION_WIDTHS = [
   { value: 1, label: "1 px" },
@@ -94,7 +129,17 @@ export function getStepRadius(
   return Math.max(glyphSize * 0.58, textWidth * 0.55) + padding;
 }
 
-const FONT_FAMILY = `Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`;
+export function getTextFont(
+  style: {
+    fontSize: number;
+    fontFamily?: string;
+    fontWeight?: number;
+    fontStyle?: "normal" | "italic";
+  },
+  scale = 1,
+): string {
+  return `${style.fontStyle ?? "normal"} ${style.fontWeight ?? 400} ${style.fontSize * scale}px ${style.fontFamily ?? DEFAULT_ANNOTATION_FONT_FAMILY}`;
+}
 
 export function getRect(
   start: AnnotationPoint,
@@ -282,15 +327,23 @@ function drawText(
   scale: number,
 ): void {
   const fontSize = annotation.fontSize * scale;
-  ctx.font = `600 ${fontSize}px ${FONT_FAMILY}`;
+  const x = annotation.position.x * width;
+  const y = annotation.position.y * height;
+  ctx.font = getTextFont(annotation, scale);
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillStyle = annotation.color;
-  ctx.fillText(
-    annotation.text,
-    annotation.position.x * width,
-    annotation.position.y * height,
-  );
+  ctx.fillText(annotation.text, x, y);
+
+  if (annotation.underline === true) {
+    const textWidth = ctx.measureText(annotation.text).width;
+    ctx.fillRect(
+      x,
+      y + fontSize * 1.04,
+      textWidth,
+      Math.max(1, fontSize * 0.06),
+    );
+  }
 }
 
 function drawStep(
@@ -310,7 +363,7 @@ function drawStep(
   ctx.fill();
 
   ctx.fillStyle = getTextColor(annotation.color);
-  ctx.font = `700 ${annotation.fontSize * 0.9 * scale}px ${FONT_FAMILY}`;
+  ctx.font = `700 ${annotation.fontSize * 0.9 * scale}px ${annotation.fontFamily ?? DEFAULT_ANNOTATION_FONT_FAMILY}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(String(annotation.number), x, y + 0.5 * scale);

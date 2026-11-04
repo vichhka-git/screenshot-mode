@@ -16,7 +16,7 @@
 
 Create screenshots of requests and responses inside Caido. No external tools.
 
-<img width="1450" height="913" alt="Screenshot Mode++ overlay with a Pretty request and a rendered response preview" src="assets/screenshot.png" />
+<img width="1833" height="923" alt="Screenshot Mode++ overlay with an annotated request and a rendered response preview" src="assets/screenshot.png" />
 
 ## Views
 
@@ -37,18 +37,18 @@ Caido's rendering engine is required. Install it from Settings > Rendering in Ca
 
 ## Annotations
 
-The annotation bar sits under the overlay header. Pick a tool, a color, a stroke size, and a text size, then draw on the capture.
+The annotation bar sits under the overlay header. Pick a tool, a color, a stroke size, and a text style, then draw on the capture.
 
 - Select picks annotations. Drag to move, drag a corner handle to resize, or press Delete to remove. Drag on empty space to select several at once. Shift-click adds one to the selection or removes it.
 - Pen and highlighter draw freehand.
 - Arrow, rectangle, and ellipse call out a request or response.
-- Text adds a label.
+- Text adds a label. Double-click a label to edit it.
 - Numbered step drops the next number in sequence.
 - Black box covers the content underneath.
 
-Use the swatches or the custom color picker for any color. The size menu sets line weight. The text size field takes any value from 1 to 300 px for labels and numbered steps. Shape, text, step, and redaction tools return to Select after one use. Pen and highlighter stay active for several strokes.
+Use the swatches or the custom color picker for any color. The size menu sets line weight. The Text style popover sets the font family, size, bold, italic, and underline. Sizes accept any value from 1 to 300 px. Shape, text, step, and redaction tools return to Select after one use. Pen and highlighter stay active for several strokes. Right-click cancels the active tool and returns to Select.
 
-Undo with Cmd+Z on macOS or Ctrl+Z on Windows. Redo with Cmd+Shift+Z, Ctrl+Shift+Z, or Ctrl+Y. Undo, redo, and clear also sit at the end of the bar. Annotations are redrawn at export resolution, so they stay sharp in the PNG and in the clipboard copy.
+Undo with Cmd+Z on macOS or Ctrl+Z on Windows. Redo with Cmd+Shift+Z, Ctrl+Shift+Z, or Ctrl+Y. Undo, redo, and clear also sit on the bar. Annotations are redrawn at export resolution, so they stay sharp in the PNG and in the clipboard copy.
 
 ## Installation
 

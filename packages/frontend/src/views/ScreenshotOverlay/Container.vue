@@ -32,7 +32,11 @@ import {
   AnnotationTool,
   type AnnotationTool as AnnotationToolType,
   DEFAULT_ANNOTATION_COLOR,
+  DEFAULT_ANNOTATION_FONT_FAMILY,
   DEFAULT_ANNOTATION_FONT_SIZE,
+  DEFAULT_ANNOTATION_FONT_STYLE,
+  DEFAULT_ANNOTATION_FONT_WEIGHT,
+  DEFAULT_ANNOTATION_UNDERLINE,
   DEFAULT_ANNOTATION_WIDTH,
 } from "@/utils/annotations";
 import { delay } from "@/utils/async";
@@ -97,6 +101,12 @@ const annotationTool = ref<AnnotationToolType>(AnnotationTool.Select);
 const annotationColor = ref(DEFAULT_ANNOTATION_COLOR);
 const annotationWidth = ref<number>(DEFAULT_ANNOTATION_WIDTH);
 const annotationFontSize = ref<number>(DEFAULT_ANNOTATION_FONT_SIZE);
+const annotationFontFamily = ref<string>(DEFAULT_ANNOTATION_FONT_FAMILY);
+const annotationFontWeight = ref<number>(DEFAULT_ANNOTATION_FONT_WEIGHT);
+const annotationFontStyle = ref<"normal" | "italic">(
+  DEFAULT_ANNOTATION_FONT_STYLE,
+);
+const annotationUnderline = ref<boolean>(DEFAULT_ANNOTATION_UNDERLINE);
 
 const canUndoAnnotations = computed(() => annotationPast.value.length > 0);
 const canRedoAnnotations = computed(() => annotationFuture.value.length > 0);
@@ -328,6 +338,10 @@ function handleClearAnnotations(): void {
   commitAnnotations([]);
 }
 
+function handleCancelAnnotationTool(): void {
+  annotationTool.value = AnnotationTool.Select;
+}
+
 function formatTimestamp(): string {
   return new Date().toLocaleString();
 }
@@ -498,6 +512,10 @@ onUnmounted(() => {
           :color="annotationColor"
           :stroke-width="annotationWidth"
           :font-size="annotationFontSize"
+          :font-family="annotationFontFamily"
+          :font-weight="annotationFontWeight"
+          :font-style="annotationFontStyle"
+          :underline="annotationUnderline"
           :can-undo="canUndoAnnotations"
           :can-redo="canRedoAnnotations"
           :has-annotations="hasAnnotations"
@@ -505,6 +523,10 @@ onUnmounted(() => {
           @update:color="annotationColor = $event"
           @update:stroke-width="annotationWidth = $event"
           @update:font-size="annotationFontSize = $event"
+          @update:font-family="annotationFontFamily = $event"
+          @update:font-weight="annotationFontWeight = $event"
+          @update:font-style="annotationFontStyle = $event"
+          @update:underline="annotationUnderline = $event"
           @undo="handleUndoAnnotation"
           @redo="handleRedoAnnotation"
           @clear="handleClearAnnotations"
@@ -567,9 +589,14 @@ onUnmounted(() => {
                     :color="annotationColor"
                     :stroke-width="annotationWidth"
                     :font-size="annotationFontSize"
+                    :font-family="annotationFontFamily"
+                    :font-weight="annotationFontWeight"
+                    :font-style="annotationFontStyle"
+                    :underline="annotationUnderline"
                     @add="handleAddAnnotation"
                     @update="handleUpdateAnnotations"
                     @remove="handleRemoveAnnotations"
+                    @cancel="handleCancelAnnotationTool"
                   />
                 </template>
               </ContentPanel>

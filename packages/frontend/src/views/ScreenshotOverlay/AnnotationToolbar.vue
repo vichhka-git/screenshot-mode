@@ -1,35 +1,59 @@
 <script setup lang="ts">
 import InputNumber from "primevue/inputnumber";
+import Popover from "primevue/popover";
 import Select from "primevue/select";
+import { ref } from "vue";
 
 import { ColorInput } from "@/components/ColorInput";
 import {
   ANNOTATION_COLORS,
+  ANNOTATION_FONT_FAMILIES,
   ANNOTATION_WIDTHS,
   AnnotationTool,
   type AnnotationTool as AnnotationToolType,
 } from "@/utils/annotations";
 
-const { tool, color, strokeWidth, fontSize, canUndo, canRedo, hasAnnotations } =
-  defineProps<{
-    tool: AnnotationToolType;
-    color: string;
-    strokeWidth: number;
-    fontSize: number;
-    canUndo: boolean;
-    canRedo: boolean;
-    hasAnnotations: boolean;
-  }>();
+const {
+  tool,
+  color,
+  strokeWidth,
+  fontSize,
+  fontFamily,
+  fontWeight,
+  fontStyle,
+  underline,
+  canUndo,
+  canRedo,
+  hasAnnotations,
+} = defineProps<{
+  tool: AnnotationToolType;
+  color: string;
+  strokeWidth: number;
+  fontSize: number;
+  fontFamily: string;
+  fontWeight: number;
+  fontStyle: "normal" | "italic";
+  underline: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  hasAnnotations: boolean;
+}>();
 
 const emit = defineEmits<{
   "update:tool": [tool: AnnotationToolType];
   "update:color": [color: string];
   "update:strokeWidth": [width: number];
   "update:fontSize": [size: number];
+  "update:fontFamily": [family: string];
+  "update:fontWeight": [weight: number];
+  "update:fontStyle": [style: "normal" | "italic"];
+  "update:underline": [underline: boolean];
   undo: [];
   redo: [];
   clear: [];
 }>();
+
+const fontPopover = ref<InstanceType<typeof Popover> | undefined>(undefined);
 
 const tools: {
   value: AnnotationToolType;
@@ -86,6 +110,23 @@ function handleFontSize(value: unknown): void {
 
   emit("update:fontSize", Math.min(300, Math.max(1, Math.round(value))));
 }
+
+function fontFamilyLabel(value: string): string {
+  return (
+    ANNOTATION_FONT_FAMILIES.find((family) => family.value === value)?.label ??
+    "Custom"
+  );
+}
+
+function toggleFontPopover(event: Event): void {
+  fontPopover.value?.toggle(event);
+}
+
+function activeClass(active: boolean): string {
+  return active
+    ? "bg-surface-600 text-surface-50 ring-2 ring-inset ring-surface-400"
+    : "bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50";
+}
 </script>
 
 <template>
@@ -102,8 +143,8 @@ function handleFontSize(value: unknown): void {
       v-for="item in tools"
       :key="item.value"
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-sm text-surface-300 hover:bg-surface-700 hover:text-surface-50"
-      :class="{ 'bg-surface-600 text-surface-50': tool === item.value }"
+      class="relative flex h-8 w-8 items-center justify-center rounded-md border-0 text-sm"
+      :class="activeClass(tool === item.value)"
       :title="item.label"
       :aria-label="item.label"
       :aria-pressed="tool === item.value"
@@ -117,6 +158,33 @@ function handleFontSize(value: unknown): void {
             : { transform: `rotate(${item.rotation}deg)` }
         "
       />
+      <span
+        v-if="tool === item.value"
+        class="absolute right-0.5 top-0.5 h-1 w-1 rounded-full bg-surface-50"
+      />
+    </button>
+
+    <span class="mx-1.5 h-5 w-px bg-surface-600" />
+
+    <button
+      type="button"
+      class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:opacity-60"
+      title="Undo (Cmd/Ctrl+Z)"
+      aria-label="Undo"
+      :disabled="!canUndo"
+      @click="emit('undo')"
+    >
+      <i class="fas fa-undo" />
+    </button>
+    <button
+      type="button"
+      class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:opacity-60"
+      title="Redo (Cmd/Ctrl+Shift+Z)"
+      aria-label="Redo"
+      :disabled="!canRedo"
+      @click="emit('redo')"
+    >
+      <i class="fas fa-redo" />
     </button>
 
     <span class="mx-1.5 h-5 w-px bg-surface-600" />
@@ -179,44 +247,130 @@ function handleFontSize(value: unknown): void {
     </Select>
 
     <span class="flex items-center gap-1">
-      <InputNumber
-        :model-value="fontSize"
-        :min="1"
-        :max="300"
-        :step="1"
-        class="w-20"
-        title="Text size"
-        aria-label="Text size"
-        @update:model-value="handleFontSize"
-      />
-      <span class="text-xs text-surface-400">px</span>
+      <button
+        type="button"
+        class="flex h-8 items-center gap-1 rounded-md border-0 bg-transparent px-2 text-surface-300 hover:bg-surface-700 hover:text-surface-50"
+        title="Text style"
+        aria-label="Text style"
+        @click="toggleFontPopover"
+      >
+        <span class="text-sm font-semibold" :style="{ fontFamily }">Aa</span>
+        <span class="text-[10px] text-surface-400">{{ fontSize }} px</span>
+        <i class="fas fa-chevron-down text-[9px]" />
+      </button>
+      <Popover ref="fontPopover" append-to="body" :base-z-index="600">
+        <div class="flex w-64 flex-col gap-3 p-3">
+          <div class="flex flex-col gap-1">
+            <span
+              class="text-[10px] font-semibold uppercase tracking-widest text-surface-500"
+            >
+              Font
+            </span>
+            <Select
+              :model-value="fontFamily"
+              :options="ANNOTATION_FONT_FAMILIES"
+              option-label="label"
+              option-value="value"
+              class="w-full"
+              aria-label="Font family"
+              @update:model-value="emit('update:fontFamily', $event)"
+            >
+              <template #value="{ value }">
+                <span :style="{ fontFamily: String(value) }">
+                  {{ fontFamilyLabel(String(value)) }}
+                </span>
+              </template>
+              <template #option="{ option }">
+                <span :style="{ fontFamily: option.value }">
+                  {{ option.label }}
+                </span>
+              </template>
+            </Select>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <span
+              class="text-[10px] font-semibold uppercase tracking-widest text-surface-500"
+            >
+              Size
+            </span>
+            <div class="annotation-size relative">
+              <InputNumber
+                :model-value="fontSize"
+                :min="1"
+                :max="300"
+                :step="1"
+                class="w-full"
+                title="Text size"
+                aria-label="Text size"
+                @update:model-value="handleFontSize"
+              />
+              <span
+                class="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 text-xs text-surface-400"
+              >
+                px
+              </span>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1">
+            <span
+              class="text-[10px] font-semibold uppercase tracking-widest text-surface-500"
+            >
+              Style
+            </span>
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-md border-0 text-sm"
+                :class="activeClass(fontWeight >= 700)"
+                title="Bold"
+                aria-label="Bold"
+                :aria-pressed="fontWeight >= 700"
+                @click="
+                  emit('update:fontWeight', fontWeight >= 700 ? 400 : 700)
+                "
+              >
+                <span class="font-bold">B</span>
+              </button>
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-md border-0 text-sm"
+                :class="activeClass(fontStyle === 'italic')"
+                title="Italic"
+                aria-label="Italic"
+                :aria-pressed="fontStyle === 'italic'"
+                @click="
+                  emit(
+                    'update:fontStyle',
+                    fontStyle === 'italic' ? 'normal' : 'italic',
+                  )
+                "
+              >
+                <span class="italic">I</span>
+              </button>
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-md border-0 text-sm"
+                :class="activeClass(underline)"
+                title="Underline"
+                aria-label="Underline"
+                :aria-pressed="underline"
+                @click="emit('update:underline', !underline)"
+              >
+                <span class="underline">U</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Popover>
     </span>
 
     <span class="mx-1.5 h-5 w-px bg-surface-600" />
 
     <button
       type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:opacity-40"
-      title="Undo (Cmd/Ctrl+Z)"
-      aria-label="Undo"
-      :disabled="!canUndo"
-      @click="emit('undo')"
-    >
-      <i class="fas fa-rotate-left" />
-    </button>
-    <button
-      type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:opacity-40"
-      title="Redo (Cmd/Ctrl+Shift+Z)"
-      aria-label="Redo"
-      :disabled="!canRedo"
-      @click="emit('redo')"
-    >
-      <i class="fas fa-rotate-right" />
-    </button>
-    <button
-      type="button"
-      class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:opacity-40"
+      class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:opacity-60"
       title="Clear annotations"
       aria-label="Clear annotations"
       :disabled="!hasAnnotations"
@@ -226,3 +380,9 @@ function handleFontSize(value: unknown): void {
     </button>
   </div>
 </template>
+
+<style scoped>
+.annotation-size :deep(input) {
+  padding-right: 2.9rem;
+}
+</style>

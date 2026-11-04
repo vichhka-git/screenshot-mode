@@ -4,6 +4,7 @@ import {
   type Annotation,
   getRect,
   getStepRadius,
+  getTextFont,
   isShapeAnnotation,
   nextStepNumber,
 } from "@/utils/annotations";
@@ -56,6 +57,26 @@ describe("getStepRadius", () => {
   it("grows with the font size and extra digits", () => {
     expect(getStepRadius(40, 1)).toBeGreaterThan(getStepRadius(20, 1));
     expect(getStepRadius(20, 10)).toBeGreaterThan(getStepRadius(20, 1));
+  });
+});
+
+describe("getTextFont", () => {
+  it("uses the selected family, weight, style, and scale", () => {
+    expect(
+      getTextFont(
+        {
+          fontSize: 24,
+          fontFamily: "Georgia",
+          fontWeight: 700,
+          fontStyle: "italic",
+        },
+        2,
+      ),
+    ).toBe("italic 700 48px Georgia");
+  });
+
+  it("falls back to the default annotation font", () => {
+    expect(getTextFont({ fontSize: 20 })).toContain("400 20px Inter");
   });
 });
 
