@@ -2,15 +2,59 @@ export const AnnotationTool = {
   Select: "select",
   Pen: "pen",
   Highlighter: "highlighter",
+  Line: "line",
   Arrow: "arrow",
+  OutlineArrow: "outline-arrow",
   Rectangle: "rectangle",
+  RoundedRectangle: "rounded-rectangle",
   Ellipse: "ellipse",
+  Triangle: "triangle",
+  Star: "star",
+  Polygon: "polygon",
+  Heart: "heart",
+  SpeechBubble: "speech-bubble",
+  ThoughtBubble: "thought-bubble",
   Text: "text",
   Step: "step",
   Redact: "redact",
 } as const;
 export type AnnotationTool =
   (typeof AnnotationTool)[keyof typeof AnnotationTool];
+
+const SHAPE_KINDS = [
+  "line",
+  "arrow",
+  "outline-arrow",
+  "rectangle",
+  "rounded-rectangle",
+  "ellipse",
+  "triangle",
+  "star",
+  "polygon",
+  "heart",
+  "speech-bubble",
+  "thought-bubble",
+  "redact",
+] as const;
+export type ShapeKind = (typeof SHAPE_KINDS)[number];
+
+type LineShapeKind = "line" | "arrow" | "outline-arrow";
+
+const LINE_SHAPES: LineShapeKind[] = ["line", "arrow", "outline-arrow"];
+
+function isShapeKind(value: string): value is ShapeKind {
+  return (SHAPE_KINDS as readonly string[]).includes(value);
+}
+
+export function isShapeTool(tool: AnnotationTool): tool is ShapeKind {
+  return isShapeKind(tool);
+}
+
+export function isLineShape(
+  annotation: Annotation,
+): annotation is ShapeAnnotation & { type: LineShapeKind } {
+  return LINE_SHAPES.includes(annotation.type as LineShapeKind);
+}
 
 export type AnnotationPoint = {
   x: number;
@@ -29,9 +73,13 @@ type FreehandAnnotation = AnnotationBase & {
 };
 
 type ShapeAnnotation = AnnotationBase & {
-  type: "arrow" | "rectangle" | "ellipse" | "redact";
+  type: ShapeKind;
   start: AnnotationPoint;
   end: AnnotationPoint;
+  filled?: boolean;
+  dashed?: boolean;
+  arrowStart?: boolean;
+  arrowEnd?: boolean;
 };
 
 export type TextAnnotation = AnnotationBase & {
@@ -170,12 +218,7 @@ export function nextStepNumber(annotations: Annotation[]): number {
 export function isShapeAnnotation(
   annotation: Annotation,
 ): annotation is ShapeAnnotation {
-  return (
-    annotation.type === "arrow" ||
-    annotation.type === "rectangle" ||
-    annotation.type === "ellipse" ||
-    annotation.type === "redact"
-  );
+  return isShapeKind(annotation.type);
 }
 
 function getTextColor(color: string): string {
@@ -238,7 +281,79 @@ function drawFreehand(
   ctx.stroke();
 }
 
-function drawShape(
+function setShapeStroke(
+  ctx: CanvasRenderingContext2D,
+  annotation: ShapeAnnotation,
+  scale: number,
+): void {
+  ctx.strokeStyle = annotation.color;
+  ctx.lineWidth = Math.max(1, annotation.width * scale);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  if (annotation.dashed === true) {
+    const dash = Math.max(4, annotation.width * 2.5) * scale;
+    ctx.setLineDash([dash, dash * 0.7]);
+  }
+}
+
+function paintShapePath(
+  ctx: CanvasRenderingContext2D,
+  annotation: ShapeAnnotation,
+): void {
+  if (annotation.filled === true) {
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = annotation.color;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.stroke();
+}
+
+function drawArrowHead(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  annotation: ShapeAnnotation,
+  scale: number,
+  lineLength: number,
+  outline: boolean,
+): void {
+  const headLength = Math.min(
+    Math.max(10, annotation.width * 3.5) * scale,
+    lineLength * 0.45,
+  );
+  if (headLength < 2) {
+    return;
+  }
+
+  const halfWidth = headLength * 0.52;
+  const backX = x - headLength * Math.cos(angle);
+  const backY = y - headLength * Math.sin(angle);
+
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(
+    backX + Math.sin(angle) * halfWidth,
+    backY - Math.cos(angle) * halfWidth,
+  );
+  ctx.lineTo(
+    backX - Math.sin(angle) * halfWidth,
+    backY + Math.cos(angle) * halfWidth,
+  );
+  ctx.closePath();
+
+  if (outline) {
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = annotation.color;
+    ctx.fill();
+  }
+}
+
+function drawLineShape(
   ctx: CanvasRenderingContext2D,
   annotation: ShapeAnnotation,
   width: number,
@@ -249,7 +364,196 @@ function drawShape(
   const startY = annotation.start.y * height;
   const endX = annotation.end.x * width;
   const endY = annotation.end.y * height;
+  const length = Math.hypot(endX - startX, endY - startY);
+  if (length < 1) {
+    return;
+  }
 
+  setShapeStroke(ctx, annotation, scale);
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+
+  const angle = Math.atan2(endY - startY, endX - startX);
+  const outline = annotation.type === "outline-arrow";
+  const defaultEnd = annotation.type !== "line";
+
+  if (annotation.arrowStart === true) {
+    drawArrowHead(
+      ctx,
+      startX,
+      startY,
+      angle + Math.PI,
+      annotation,
+      scale,
+      length,
+      outline,
+    );
+  }
+
+  if ((annotation.arrowEnd ?? defaultEnd) === true) {
+    drawArrowHead(ctx, endX, endY, angle, annotation, scale, length, outline);
+  }
+}
+
+function drawClosedShape(
+  ctx: CanvasRenderingContext2D,
+  annotation: ShapeAnnotation,
+  width: number,
+  height: number,
+  scale: number,
+): void {
+  const rect = getRect(annotation.start, annotation.end);
+  const x = rect.x * width;
+  const y = rect.y * height;
+  const shapeWidth = rect.width * width;
+  const shapeHeight = rect.height * height;
+
+  if (shapeWidth < 1 || shapeHeight < 1) {
+    return;
+  }
+
+  const centerX = x + shapeWidth / 2;
+  const centerY = y + shapeHeight / 2;
+  const radius = Math.min(shapeWidth, shapeHeight) * 0.16;
+
+  setShapeStroke(ctx, annotation, scale);
+  ctx.beginPath();
+
+  switch (annotation.type) {
+    case "rectangle":
+      ctx.rect(x, y, shapeWidth, shapeHeight);
+      break;
+    case "rounded-rectangle":
+      ctx.roundRect(x, y, shapeWidth, shapeHeight, radius);
+      break;
+    case "ellipse":
+      ctx.ellipse(
+        centerX,
+        centerY,
+        shapeWidth / 2,
+        shapeHeight / 2,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      break;
+    case "triangle":
+      ctx.moveTo(centerX, y);
+      ctx.lineTo(x + shapeWidth, y + shapeHeight);
+      ctx.lineTo(x, y + shapeHeight);
+      ctx.closePath();
+      break;
+    case "star": {
+      const outer = Math.min(shapeWidth, shapeHeight) / 2;
+      const inner = outer * 0.46;
+      for (let index = 0; index < 10; index += 1) {
+        const angle = -Math.PI / 2 + (index * Math.PI) / 5;
+        const distance = index % 2 === 0 ? outer : inner;
+        const pointX = centerX + Math.cos(angle) * distance;
+        const pointY = centerY + Math.sin(angle) * distance;
+        if (index === 0) {
+          ctx.moveTo(pointX, pointY);
+        } else {
+          ctx.lineTo(pointX, pointY);
+        }
+      }
+      ctx.closePath();
+      break;
+    }
+    case "polygon": {
+      const outer = Math.min(shapeWidth, shapeHeight) / 2;
+      for (let index = 0; index < 6; index += 1) {
+        const angle = -Math.PI / 2 + (index * Math.PI) / 3;
+        const pointX = centerX + Math.cos(angle) * outer;
+        const pointY = centerY + Math.sin(angle) * outer;
+        if (index === 0) {
+          ctx.moveTo(pointX, pointY);
+        } else {
+          ctx.lineTo(pointX, pointY);
+        }
+      }
+      ctx.closePath();
+      break;
+    }
+    case "heart":
+      ctx.moveTo(centerX, y + shapeHeight * 0.92);
+      ctx.bezierCurveTo(
+        x + shapeWidth * 1.02,
+        y + shapeHeight * 0.58,
+        x + shapeWidth * 0.9,
+        y + shapeHeight * 0.08,
+        centerX + shapeWidth * 0.2,
+        y + shapeHeight * 0.2,
+      );
+      ctx.bezierCurveTo(
+        centerX + shapeWidth * 0.08,
+        y + shapeHeight * 0.12,
+        centerX - shapeWidth * 0.08,
+        y + shapeHeight * 0.12,
+        centerX - shapeWidth * 0.2,
+        y + shapeHeight * 0.2,
+      );
+      ctx.bezierCurveTo(
+        x + shapeWidth * 0.1,
+        y + shapeHeight * 0.08,
+        x - shapeWidth * 0.02,
+        y + shapeHeight * 0.58,
+        centerX,
+        y + shapeHeight * 0.92,
+      );
+      ctx.closePath();
+      break;
+    case "speech-bubble": {
+      const bodyHeight = shapeHeight * 0.78;
+      ctx.roundRect(x, y, shapeWidth, bodyHeight, radius);
+      ctx.moveTo(x + shapeWidth * 0.22, y + bodyHeight);
+      ctx.lineTo(x + shapeWidth * 0.3, y + shapeHeight);
+      ctx.lineTo(x + shapeWidth * 0.44, y + bodyHeight);
+      break;
+    }
+    case "thought-bubble": {
+      const mainRadiusX = shapeWidth * 0.42;
+      const mainRadiusY = shapeHeight * 0.3;
+      ctx.ellipse(
+        centerX + shapeWidth * 0.05,
+        y + shapeHeight * 0.38,
+        mainRadiusX,
+        mainRadiusY,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      const bubbles: [number, number, number][] = [
+        [0.3, 0.78, 0.08],
+        [0.2, 0.89, 0.055],
+        [0.12, 0.97, 0.035],
+      ];
+      for (const [bubbleX, bubbleY, bubbleRadius] of bubbles) {
+        const radiusX = shapeWidth * bubbleRadius;
+        const radiusY = shapeHeight * bubbleRadius;
+        const pointX = x + shapeWidth * bubbleX;
+        const pointY = y + shapeHeight * bubbleY;
+        ctx.moveTo(pointX + radiusX, pointY);
+        ctx.ellipse(pointX, pointY, radiusX, radiusY, 0, 0, Math.PI * 2);
+      }
+      break;
+    }
+    default:
+      return;
+  }
+
+  paintShapePath(ctx, annotation);
+}
+
+function drawShape(
+  ctx: CanvasRenderingContext2D,
+  annotation: ShapeAnnotation,
+  width: number,
+  height: number,
+  scale: number,
+): void {
   if (annotation.type === "redact") {
     const rect = getRect(annotation.start, annotation.end);
     ctx.fillStyle = "#000000";
@@ -262,69 +566,12 @@ function drawShape(
     return;
   }
 
-  const lineWidth = Math.max(1, annotation.width * scale);
-  ctx.strokeStyle = annotation.color;
-  ctx.fillStyle = annotation.color;
-  ctx.lineWidth = lineWidth;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-
-  if (annotation.type === "arrow") {
-    const length = Math.hypot(endX - startX, endY - startY);
-    if (length < 1) {
-      return;
-    }
-
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-
-    const angle = Math.atan2(endY - startY, endX - startX);
-    const headLength = Math.min(
-      Math.max(10, annotation.width * 3) * scale,
-      length * 0.6,
-    );
-    const spread = Math.PI / 7;
-    ctx.beginPath();
-    ctx.moveTo(endX, endY);
-    ctx.lineTo(
-      endX - headLength * Math.cos(angle - spread),
-      endY - headLength * Math.sin(angle - spread),
-    );
-    ctx.lineTo(
-      endX - headLength * Math.cos(angle + spread),
-      endY - headLength * Math.sin(angle + spread),
-    );
-    ctx.closePath();
-    ctx.fill();
+  if (isLineShape(annotation)) {
+    drawLineShape(ctx, annotation, width, height, scale);
     return;
   }
 
-  if (annotation.type === "rectangle") {
-    const rect = getRect(annotation.start, annotation.end);
-    ctx.strokeRect(
-      rect.x * width,
-      rect.y * height,
-      rect.width * width,
-      rect.height * height,
-    );
-    return;
-  }
-
-  const centerX = (startX + endX) / 2;
-  const centerY = (startY + endY) / 2;
-  ctx.beginPath();
-  ctx.ellipse(
-    centerX,
-    centerY,
-    Math.abs(endX - startX) / 2,
-    Math.abs(endY - startY) / 2,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  ctx.stroke();
+  drawClosedShape(ctx, annotation, width, height, scale);
 }
 
 function drawText(

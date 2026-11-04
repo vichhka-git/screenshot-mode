@@ -40,6 +40,8 @@ import {
   DEFAULT_ANNOTATION_INDENT,
   DEFAULT_ANNOTATION_UNDERLINE,
   DEFAULT_ANNOTATION_WIDTH,
+  isLineShape,
+  isShapeAnnotation,
 } from "@/utils/annotations";
 import { delay } from "@/utils/async";
 import { isPresent } from "@/utils/optional";
@@ -111,6 +113,10 @@ const annotationFontStyle = ref<"normal" | "italic">(
 const annotationUnderline = ref<boolean>(DEFAULT_ANNOTATION_UNDERLINE);
 const annotationIndent = ref<number>(DEFAULT_ANNOTATION_INDENT);
 const annotationBoxed = ref<boolean>(DEFAULT_ANNOTATION_BOXED);
+const annotationFilled = ref(false);
+const annotationDashed = ref(false);
+const annotationArrowStart = ref(false);
+const annotationArrowEnd = ref(true);
 const selectedAnnotationIds = ref<string[]>([]);
 
 const selectedAnnotations = computed(() => {
@@ -366,6 +372,15 @@ function syncToolbarFromAnnotation(annotation: Annotation): void {
       annotation.fontFamily ?? DEFAULT_ANNOTATION_FONT_FAMILY;
   }
 
+  if (isShapeAnnotation(annotation)) {
+    annotationFilled.value = annotation.filled ?? false;
+    annotationDashed.value = annotation.dashed ?? false;
+    annotationArrowStart.value = annotation.arrowStart ?? false;
+    annotationArrowEnd.value =
+      annotation.arrowEnd ??
+      (annotation.type === "arrow" || annotation.type === "outline-arrow");
+  }
+
   if (annotation.type === "text") {
     annotationFontWeight.value =
       annotation.fontWeight ?? DEFAULT_ANNOTATION_FONT_WEIGHT;
@@ -458,6 +473,34 @@ function handleAnnotationBoxed(boxed: boolean): void {
   annotationBoxed.value = boxed;
   updateSelectedAnnotations((annotation) =>
     annotation.type === "text" ? { ...annotation, boxed } : annotation,
+  );
+}
+
+function handleAnnotationFilled(filled: boolean): void {
+  annotationFilled.value = filled;
+  updateSelectedAnnotations((annotation) =>
+    isShapeAnnotation(annotation) ? { ...annotation, filled } : annotation,
+  );
+}
+
+function handleAnnotationDashed(dashed: boolean): void {
+  annotationDashed.value = dashed;
+  updateSelectedAnnotations((annotation) =>
+    isShapeAnnotation(annotation) ? { ...annotation, dashed } : annotation,
+  );
+}
+
+function handleAnnotationArrowStart(arrowStart: boolean): void {
+  annotationArrowStart.value = arrowStart;
+  updateSelectedAnnotations((annotation) =>
+    isLineShape(annotation) ? { ...annotation, arrowStart } : annotation,
+  );
+}
+
+function handleAnnotationArrowEnd(arrowEnd: boolean): void {
+  annotationArrowEnd.value = arrowEnd;
+  updateSelectedAnnotations((annotation) =>
+    isLineShape(annotation) ? { ...annotation, arrowEnd } : annotation,
   );
 }
 
@@ -650,6 +693,10 @@ onUnmounted(() => {
           :underline="annotationUnderline"
           :indent="annotationIndent"
           :boxed="annotationBoxed"
+          :filled="annotationFilled"
+          :dashed="annotationDashed"
+          :arrow-start="annotationArrowStart"
+          :arrow-end="annotationArrowEnd"
           :can-undo="canUndoAnnotations"
           :can-redo="canRedoAnnotations"
           :has-annotations="hasAnnotations"
@@ -663,6 +710,10 @@ onUnmounted(() => {
           @update:underline="handleAnnotationUnderline"
           @update:indent="handleAnnotationIndent"
           @update:boxed="handleAnnotationBoxed"
+          @update:filled="handleAnnotationFilled"
+          @update:dashed="handleAnnotationDashed"
+          @update:arrow-start="handleAnnotationArrowStart"
+          @update:arrow-end="handleAnnotationArrowEnd"
           @undo="handleUndoAnnotation"
           @redo="handleRedoAnnotation"
           @clear="handleClearAnnotations"
@@ -731,6 +782,10 @@ onUnmounted(() => {
                     :underline="annotationUnderline"
                     :indent="annotationIndent"
                     :boxed="annotationBoxed"
+                    :filled="annotationFilled"
+                    :dashed="annotationDashed"
+                    :arrow-start="annotationArrowStart"
+                    :arrow-end="annotationArrowEnd"
                     @add="handleAddAnnotation"
                     @update="handleUpdateAnnotations"
                     @remove="handleRemoveAnnotations"

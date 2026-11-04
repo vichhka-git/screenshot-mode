@@ -20,7 +20,9 @@ import {
   getStepRadius,
   getTextFont,
   getTextPadding,
+  isLineShape,
   isShapeAnnotation,
+  isShapeTool,
   nextStepNumber,
   type TextAnnotation,
 } from "@/utils/annotations";
@@ -37,6 +39,10 @@ const {
   underline,
   indent,
   boxed,
+  filled,
+  dashed,
+  arrowStart,
+  arrowEnd,
 } = defineProps<{
   annotations: Annotation[];
   tool: AnnotationToolType;
@@ -49,6 +55,10 @@ const {
   underline: boolean;
   indent: number;
   boxed: boolean;
+  filled: boolean;
+  dashed: boolean;
+  arrowStart: boolean;
+  arrowEnd: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -91,17 +101,10 @@ let resizeObserver: ResizeObserver | undefined;
 
 type ResizeHandle = "nw" | "ne" | "se" | "sw";
 type ArrowHandle = "start" | "end" | "center";
-type ArrowAnnotation = Annotation & {
-  type: "arrow";
+type LineAnnotation = Annotation & {
   start: AnnotationPoint;
   end: AnnotationPoint;
 };
-
-function isArrowAnnotation(
-  annotation: Annotation,
-): annotation is ArrowAnnotation {
-  return annotation.type === "arrow";
-}
 
 type DragState = {
   kind: "move" | "resize" | "endpoint";
@@ -291,7 +294,7 @@ function getNormalizedBounds(annotation: Annotation): Bounds | undefined {
 }
 
 function getArrowHandleAt(
-  annotation: ArrowAnnotation,
+  annotation: LineAnnotation,
   point: AnnotationPoint,
 ): ArrowHandle | undefined {
   const canvas = canvasRef.value;
@@ -553,7 +556,7 @@ function resizeSelection(
   );
 }
 
-function drawArrowSelection(annotation: ArrowAnnotation): void {
+function drawLineSelection(annotation: LineAnnotation): void {
   const canvas = canvasRef.value;
   const ctx = canvas?.getContext("2d");
   if (canvas === undefined || ctx === null || ctx === undefined) {
@@ -660,8 +663,8 @@ function drawSelection(): void {
   }
 
   if (selected.length === 1) {
-    if (isArrowAnnotation(selected[0]!)) {
-      drawArrowSelection(selected[0]);
+    if (isLineShape(selected[0]!)) {
+      drawLineSelection(selected[0]);
       return;
     }
 
@@ -894,12 +897,11 @@ function startDrawing(event: PointerEvent, point: AnnotationPoint): void {
       width:
         tool === AnnotationTool.Highlighter ? strokeWidth * 4 : strokeWidth,
     };
-  } else if (
-    tool === AnnotationTool.Arrow ||
-    tool === AnnotationTool.Rectangle ||
-    tool === AnnotationTool.Ellipse ||
-    tool === AnnotationTool.Redact
-  ) {
+  } else if (isShapeTool(tool)) {
+    const line =
+      tool === AnnotationTool.Line ||
+      tool === AnnotationTool.Arrow ||
+      tool === AnnotationTool.OutlineArrow;
     draft.value = {
       id,
       type: tool,
@@ -907,6 +909,14 @@ function startDrawing(event: PointerEvent, point: AnnotationPoint): void {
       end: point,
       color,
       width: strokeWidth,
+      filled: line ? undefined : filled,
+      dashed,
+      arrowStart: line ? arrowStart : undefined,
+      arrowEnd: line
+        ? tool === AnnotationTool.Arrow || tool === AnnotationTool.OutlineArrow
+          ? arrowEnd
+          : false
+        : undefined,
     };
   } else {
     return;
@@ -945,22 +955,15 @@ function startSelection(
   additive: boolean,
 ): void {
   const displayed = getDisplayedSelection();
-  const singleArrow =
-    displayed.length === 1 && isArrowAnnotation(displayed[0]!)
+  const singleLine =
+    displayed.length === 1 && isLineShape(displayed[0]!)
       ? displayed[0]
       : undefined;
 
-  if (singleArrow !== undefined) {
-    const arrowHandle = getArrowHandleAt(singleArrow, point);
+  if (singleLine !== undefined) {
+    const arrowHandle = getArrowHandleAt(singleLine, point);
     if (arrowHandle === "start" || arrowHandle === "end") {
-      beginDrag(
-        event,
-        [singleArrow],
-        point,
-        "endpoint",
-        undefined,
-        arrowHandle,
-      );
+      beginDrag(event, [singleLine], point, "endpoint", undefined, arrowHandle);
       return;
     }
   }
@@ -969,7 +972,7 @@ function startSelection(
   const selectedBounds =
     selected === undefined ? undefined : toCanvasBounds(selected);
   const selectedHandle =
-    singleArrow !== undefined || selectedBounds === undefined
+    singleLine !== undefined || selectedBounds === undefined
       ? undefined
       : getHandleAt(selectedBounds, point);
 
@@ -1097,7 +1100,7 @@ function handlePointerMove(event: PointerEvent): void {
     ) {
       const endpoint = dragState.endpoint;
       dragState.currents = dragState.originals.map((annotation) =>
-        annotation.type === "arrow"
+        isLineShape(annotation)
           ? { ...annotation, [endpoint]: point }
           : annotation,
       );
@@ -1200,25 +1203,23 @@ function finishDrawing(event: PointerEvent): void {
   drawing.value = false;
   draft.value = undefined;
 
-  if (annotation.type === "arrow") {
-    if (
-      Math.hypot(
-        annotation.end.x - annotation.start.x,
-        annotation.end.y - annotation.start.y,
-      ) < 0.004
-    ) {
-      draw();
-      return;
-    }
-  } else if (
-    annotation.type === "rectangle" ||
-    annotation.type === "ellipse" ||
-    annotation.type === "redact"
-  ) {
-    const rect = getRect(annotation.start, annotation.end);
-    if (rect.width < 0.004 && rect.height < 0.004) {
-      draw();
-      return;
+  if (isShapeAnnotation(annotation)) {
+    if (isLineShape(annotation)) {
+      if (
+        Math.hypot(
+          annotation.end.x - annotation.start.x,
+          annotation.end.y - annotation.start.y,
+        ) < 0.004
+      ) {
+        draw();
+        return;
+      }
+    } else {
+      const rect = getRect(annotation.start, annotation.end);
+      if (rect.width < 0.004 && rect.height < 0.004) {
+        draw();
+        return;
+      }
     }
   }
 
@@ -1290,19 +1291,17 @@ function handleDocumentPointerDown(event: PointerEvent): void {
 
   const point = getPoint(event);
   const selected = getDisplayedSelection();
-  const singleArrow =
-    selected.length === 1 && isArrowAnnotation(selected[0]!)
+  const singleLine =
+    selected.length === 1 && isLineShape(selected[0]!)
       ? selected[0]
       : undefined;
   const arrowHandle =
-    singleArrow === undefined
-      ? undefined
-      : getArrowHandleAt(singleArrow, point);
+    singleLine === undefined ? undefined : getArrowHandleAt(singleLine, point);
   const selectionBounds = getSelectionBounds(selected);
   const canvasBounds =
     selectionBounds === undefined ? undefined : toCanvasBounds(selectionBounds);
   const handle =
-    singleArrow !== undefined || canvasBounds === undefined
+    singleLine !== undefined || canvasBounds === undefined
       ? undefined
       : getHandleAt(canvasBounds, point);
   const hit = [...annotations]

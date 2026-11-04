@@ -2,7 +2,7 @@
 import InputNumber from "primevue/inputnumber";
 import Popover from "primevue/popover";
 import Select from "primevue/select";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 
 import { ColorInput } from "@/components/ColorInput";
 import {
@@ -11,7 +11,10 @@ import {
   ANNOTATION_WIDTHS,
   AnnotationTool,
   type AnnotationTool as AnnotationToolType,
+  isShapeTool,
+  type ShapeKind,
 } from "@/utils/annotations";
+import ShapeIcon from "@/views/ScreenshotOverlay/ShapeIcon.vue";
 
 const {
   tool,
@@ -24,6 +27,10 @@ const {
   underline,
   indent,
   boxed,
+  filled,
+  dashed,
+  arrowStart,
+  arrowEnd,
   canUndo,
   canRedo,
   hasAnnotations,
@@ -38,6 +45,10 @@ const {
   underline: boolean;
   indent: number;
   boxed: boolean;
+  filled: boolean;
+  dashed: boolean;
+  arrowStart: boolean;
+  arrowEnd: boolean;
   canUndo: boolean;
   canRedo: boolean;
   hasAnnotations: boolean;
@@ -54,18 +65,42 @@ const emit = defineEmits<{
   "update:underline": [underline: boolean];
   "update:indent": [indent: number];
   "update:boxed": [boxed: boolean];
+  "update:filled": [filled: boolean];
+  "update:dashed": [dashed: boolean];
+  "update:arrowStart": [arrowStart: boolean];
+  "update:arrowEnd": [arrowEnd: boolean];
   undo: [];
   redo: [];
   clear: [];
 }>();
 
 const fontPopover = ref<InstanceType<typeof Popover> | undefined>(undefined);
+const shapePopover = ref<InstanceType<typeof Popover> | undefined>(undefined);
+const stylePopover = ref<InstanceType<typeof Popover> | undefined>(undefined);
+
+const shapeOptions: { value: ShapeKind; label: string }[] = [
+  { value: "line", label: "Line" },
+  { value: "arrow", label: "Arrow" },
+  { value: "outline-arrow", label: "Outline arrow" },
+  { value: "rectangle", label: "Rectangle" },
+  { value: "rounded-rectangle", label: "Rounded rectangle" },
+  { value: "ellipse", label: "Ellipse" },
+  { value: "triangle", label: "Triangle" },
+  { value: "star", label: "Star" },
+  { value: "polygon", label: "Hexagon" },
+  { value: "heart", label: "Heart" },
+  { value: "speech-bubble", label: "Speech bubble" },
+  { value: "thought-bubble", label: "Thought bubble" },
+];
+
+const activeShape = computed<ShapeKind>(() =>
+  isShapeTool(tool) ? tool : "rectangle",
+);
 
 const tools: {
   value: AnnotationToolType;
   icon: string;
   label: string;
-  rotation?: number;
 }[] = [
   {
     value: AnnotationTool.Select,
@@ -78,18 +113,6 @@ const tools: {
     icon: "fas fa-highlighter",
     label: "Highlighter",
   },
-  {
-    value: AnnotationTool.Arrow,
-    icon: "fas fa-arrow-right",
-    label: "Arrow",
-    rotation: -45,
-  },
-  {
-    value: AnnotationTool.Rectangle,
-    icon: "far fa-square",
-    label: "Rectangle",
-  },
-  { value: AnnotationTool.Ellipse, icon: "far fa-circle", label: "Ellipse" },
   { value: AnnotationTool.Text, icon: "fas fa-font", label: "Text" },
   {
     value: AnnotationTool.Step,
@@ -138,6 +161,19 @@ function toolIcon(item: (typeof tools)[number]): string {
     : item.icon;
 }
 
+function toggleShapePopover(event: Event): void {
+  shapePopover.value?.toggle(event);
+}
+
+function chooseShape(shape: ShapeKind): void {
+  emit("update:tool", shape);
+  shapePopover.value?.hide();
+}
+
+function toggleStylePopover(event: Event): void {
+  stylePopover.value?.toggle(event);
+}
+
 function activeClass(active: boolean): string {
   return active
     ? "bg-surface-600 text-surface-50 ring-2 ring-inset ring-surface-400"
@@ -166,19 +202,114 @@ function activeClass(active: boolean): string {
       :aria-pressed="tool === item.value"
       @click="emit('update:tool', item.value)"
     >
-      <i
-        :class="toolIcon(item)"
-        :style="
-          item.rotation === undefined
-            ? undefined
-            : { transform: `rotate(${item.rotation}deg)` }
-        "
-      />
+      <i :class="toolIcon(item)" />
       <span
         v-if="tool === item.value"
         class="absolute right-0.5 top-0.5 h-1 w-1 rounded-full bg-surface-50"
       />
     </button>
+
+    <button
+      type="button"
+      class="flex h-8 items-center justify-center gap-0.5 rounded-md border-0 px-2"
+      :class="activeClass(isShapeTool(tool))"
+      title="Shapes"
+      aria-label="Shapes"
+      @click="toggleShapePopover"
+    >
+      <ShapeIcon :shape="activeShape" class="h-4 w-4" />
+      <i class="fas fa-chevron-down text-[8px]" />
+    </button>
+    <Popover ref="shapePopover" append-to="body" :base-z-index="600">
+      <div class="grid w-64 grid-cols-4 gap-1 p-2" data-annotation-style-ui>
+        <button
+          v-for="shapeOption in shapeOptions"
+          :key="shapeOption.value"
+          type="button"
+          class="flex h-12 flex-col items-center justify-center gap-1 rounded-md border-0 text-[9px]"
+          :class="activeClass(tool === shapeOption.value)"
+          :title="shapeOption.label"
+          :aria-label="shapeOption.label"
+          @click="chooseShape(shapeOption.value)"
+        >
+          <ShapeIcon :shape="shapeOption.value" class="h-5 w-5" />
+          <span class="leading-none">{{ shapeOption.label }}</span>
+        </button>
+      </div>
+    </Popover>
+
+    <button
+      type="button"
+      class="flex h-8 w-8 items-center justify-center rounded-md border-0"
+      :class="activeClass(filled || dashed || arrowStart || arrowEnd)"
+      title="Shape style"
+      aria-label="Shape style"
+      @click="toggleStylePopover"
+    >
+      <i class="fas fa-fill-drip" />
+    </button>
+    <Popover ref="stylePopover" append-to="body" :base-z-index="600">
+      <div class="flex w-56 flex-col gap-2 p-3" data-annotation-style-ui>
+        <span
+          class="text-[10px] font-semibold uppercase tracking-widest text-surface-500"
+        >
+          Shape style
+        </span>
+        <div class="grid grid-cols-2 gap-1">
+          <button
+            type="button"
+            class="flex h-8 items-center justify-center gap-1 rounded-md border-0 text-xs"
+            :class="activeClass(filled)"
+            title="Fill shape"
+            aria-label="Fill shape"
+            :aria-pressed="filled"
+            @click="emit('update:filled', !filled)"
+          >
+            <i class="fas fa-fill-drip" />
+            Fill
+          </button>
+          <button
+            type="button"
+            class="flex h-8 items-center justify-center gap-1 rounded-md border-0 text-xs"
+            :class="activeClass(dashed)"
+            title="Dashed line"
+            aria-label="Dashed line"
+            :aria-pressed="dashed"
+            @click="emit('update:dashed', !dashed)"
+          >
+            <i class="fas fa-border-style" />
+            Dashed
+          </button>
+          <button
+            type="button"
+            class="flex h-8 items-center justify-center gap-1 rounded-md border-0 text-xs"
+            :class="activeClass(arrowStart)"
+            title="Arrowhead at start"
+            aria-label="Arrowhead at start"
+            :aria-pressed="arrowStart"
+            @click="emit('update:arrowStart', !arrowStart)"
+          >
+            <i class="fas fa-arrow-left" />
+            Start
+          </button>
+          <button
+            type="button"
+            class="flex h-8 items-center justify-center gap-1 rounded-md border-0 text-xs"
+            :class="activeClass(arrowEnd)"
+            title="Arrowhead at end"
+            aria-label="Arrowhead at end"
+            :aria-pressed="arrowEnd"
+            @click="emit('update:arrowEnd', !arrowEnd)"
+          >
+            <i class="fas fa-arrow-right" />
+            End
+          </button>
+        </div>
+        <p class="m-0 text-[10px] leading-snug text-surface-400">
+          Fill uses the stroke color at 20% opacity.
+        </p>
+      </div>
+    </Popover>
 
     <span class="mx-1.5 h-5 w-px bg-surface-600" />
 
