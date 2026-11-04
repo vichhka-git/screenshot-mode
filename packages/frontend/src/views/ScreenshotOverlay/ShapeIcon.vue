@@ -22,8 +22,7 @@ const { shape } = defineProps<{
       <polyline points="12,4 20,4 20,12" />
     </template>
     <template v-else-if="shape === 'outline-arrow'">
-      <line x1="4" y1="20" x2="17" y2="7" />
-      <polygon points="12,4 20,4 20,12" />
+      <polygon points="3,9 12,9 12,5 21,12 12,19 12,15 3,15" />
     </template>
     <rect
       v-else-if="shape === 'rectangle'"

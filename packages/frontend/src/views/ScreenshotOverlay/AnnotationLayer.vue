@@ -581,7 +581,7 @@ function drawLineSelection(annotation: LineAnnotation): void {
   for (const point of [start, end]) {
     ctx.beginPath();
     ctx.arc(point.x, point.y, 6 * scale, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
     ctx.fill();
     ctx.lineWidth = 2 * scale;
     ctx.strokeStyle = "#2563eb";

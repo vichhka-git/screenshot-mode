@@ -311,6 +311,17 @@ function paintShapePath(
   ctx.stroke();
 }
 
+function getArrowHeadLength(
+  annotation: ShapeAnnotation,
+  scale: number,
+  lineLength: number,
+): number {
+  return Math.min(
+    Math.max(14, annotation.width * 6) * scale,
+    lineLength * 0.35,
+  );
+}
+
 function drawArrowHead(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -321,15 +332,12 @@ function drawArrowHead(
   lineLength: number,
   outline: boolean,
 ): void {
-  const headLength = Math.min(
-    Math.max(10, annotation.width * 3.5) * scale,
-    lineLength * 0.45,
-  );
+  const headLength = getArrowHeadLength(annotation, scale, lineLength);
   if (headLength < 2) {
     return;
   }
 
-  const halfWidth = headLength * 0.52;
+  const halfWidth = headLength * 0.58;
   const backX = x - headLength * Math.cos(angle);
   const backY = y - headLength * Math.sin(angle);
 
@@ -353,6 +361,68 @@ function drawArrowHead(
   }
 }
 
+function drawBigArrow(
+  ctx: CanvasRenderingContext2D,
+  annotation: ShapeAnnotation,
+  width: number,
+  height: number,
+  scale: number,
+): void {
+  const startX = annotation.start.x * width;
+  const startY = annotation.start.y * height;
+  const endX = annotation.end.x * width;
+  const endY = annotation.end.y * height;
+  const length = Math.hypot(endX - startX, endY - startY);
+  if (length < 1) {
+    return;
+  }
+
+  const angle = Math.atan2(endY - startY, endX - startX);
+  const normalX = -Math.sin(angle);
+  const normalY = Math.cos(angle);
+  const headLength = Math.min(
+    length * 0.32,
+    Math.max(18 * scale, annotation.width * 6 * scale),
+  );
+  const shaftWidth = Math.max(
+    10 * scale,
+    Math.min(length * 0.2, annotation.width * 4 * scale + 8 * scale),
+  );
+  const headWidth = shaftWidth * 1.9;
+  const backX = endX - Math.cos(angle) * headLength;
+  const backY = endY - Math.sin(angle) * headLength;
+
+  setShapeStroke(ctx, annotation, scale);
+  ctx.beginPath();
+  ctx.moveTo(
+    startX + normalX * (shaftWidth / 2),
+    startY + normalY * (shaftWidth / 2),
+  );
+  ctx.lineTo(
+    backX + normalX * (shaftWidth / 2),
+    backY + normalY * (shaftWidth / 2),
+  );
+  ctx.lineTo(
+    backX + normalX * (headWidth / 2),
+    backY + normalY * (headWidth / 2),
+  );
+  ctx.lineTo(endX, endY);
+  ctx.lineTo(
+    backX - normalX * (headWidth / 2),
+    backY - normalY * (headWidth / 2),
+  );
+  ctx.lineTo(
+    backX - normalX * (shaftWidth / 2),
+    backY - normalY * (shaftWidth / 2),
+  );
+  ctx.lineTo(
+    startX - normalX * (shaftWidth / 2),
+    startY - normalY * (shaftWidth / 2),
+  );
+  ctx.closePath();
+  paintShapePath(ctx, annotation);
+}
+
 function drawLineShape(
   ctx: CanvasRenderingContext2D,
   annotation: ShapeAnnotation,
@@ -369,17 +439,30 @@ function drawLineShape(
     return;
   }
 
-  setShapeStroke(ctx, annotation, scale);
-  ctx.beginPath();
-  ctx.moveTo(startX, startY);
-  ctx.lineTo(endX, endY);
-  ctx.stroke();
+  if (annotation.type === "outline-arrow") {
+    drawBigArrow(ctx, annotation, width, height, scale);
+    return;
+  }
 
   const angle = Math.atan2(endY - startY, endX - startX);
-  const outline = annotation.type === "outline-arrow";
   const defaultEnd = annotation.type !== "line";
+  const drawStart = annotation.arrowStart === true;
+  const drawEnd = (annotation.arrowEnd ?? defaultEnd) === true;
+  const headLength = getArrowHeadLength(annotation, scale, length);
 
-  if (annotation.arrowStart === true) {
+  setShapeStroke(ctx, annotation, scale);
+  ctx.beginPath();
+  ctx.moveTo(
+    startX + (drawStart ? Math.cos(angle) * headLength : 0),
+    startY + (drawStart ? Math.sin(angle) * headLength : 0),
+  );
+  ctx.lineTo(
+    endX - (drawEnd ? Math.cos(angle) * headLength : 0),
+    endY - (drawEnd ? Math.sin(angle) * headLength : 0),
+  );
+  ctx.stroke();
+
+  if (drawStart) {
     drawArrowHead(
       ctx,
       startX,
@@ -388,12 +471,12 @@ function drawLineShape(
       annotation,
       scale,
       length,
-      outline,
+      false,
     );
   }
 
-  if ((annotation.arrowEnd ?? defaultEnd) === true) {
-    drawArrowHead(ctx, endX, endY, angle, annotation, scale, length, outline);
+  if (drawEnd) {
+    drawArrowHead(ctx, endX, endY, angle, annotation, scale, length, false);
   }
 }
 
@@ -478,30 +561,54 @@ function drawClosedShape(
       break;
     }
     case "heart":
-      ctx.moveTo(centerX, y + shapeHeight * 0.92);
+      ctx.moveTo(centerX, y + shapeHeight);
       ctx.bezierCurveTo(
-        x + shapeWidth * 1.02,
-        y + shapeHeight * 0.58,
-        x + shapeWidth * 0.9,
-        y + shapeHeight * 0.08,
-        centerX + shapeWidth * 0.2,
-        y + shapeHeight * 0.2,
+        x + shapeWidth * 0.15,
+        y + shapeHeight * 0.7,
+        x,
+        y + shapeHeight * 0.45,
+        x,
+        y + shapeHeight * 0.28,
       );
       ctx.bezierCurveTo(
-        centerX + shapeWidth * 0.08,
-        y + shapeHeight * 0.12,
-        centerX - shapeWidth * 0.08,
-        y + shapeHeight * 0.12,
-        centerX - shapeWidth * 0.2,
-        y + shapeHeight * 0.2,
+        x,
+        y + shapeHeight * 0.1,
+        x + shapeWidth * 0.15,
+        y,
+        x + shapeWidth * 0.3,
+        y,
       );
       ctx.bezierCurveTo(
-        x + shapeWidth * 0.1,
-        y + shapeHeight * 0.08,
-        x - shapeWidth * 0.02,
-        y + shapeHeight * 0.58,
+        x + shapeWidth * 0.4,
+        y,
+        x + shapeWidth * 0.47,
+        y + shapeHeight * 0.05,
         centerX,
-        y + shapeHeight * 0.92,
+        y + shapeHeight * 0.13,
+      );
+      ctx.bezierCurveTo(
+        x + shapeWidth * 0.53,
+        y + shapeHeight * 0.05,
+        x + shapeWidth * 0.6,
+        y,
+        x + shapeWidth * 0.7,
+        y,
+      );
+      ctx.bezierCurveTo(
+        x + shapeWidth * 0.85,
+        y,
+        x + shapeWidth,
+        y + shapeHeight * 0.1,
+        x + shapeWidth,
+        y + shapeHeight * 0.28,
+      );
+      ctx.bezierCurveTo(
+        x + shapeWidth,
+        y + shapeHeight * 0.45,
+        x + shapeWidth * 0.85,
+        y + shapeHeight * 0.7,
+        centerX,
+        y + shapeHeight,
       );
       ctx.closePath();
       break;

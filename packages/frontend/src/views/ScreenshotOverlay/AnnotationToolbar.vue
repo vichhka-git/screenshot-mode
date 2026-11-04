@@ -280,30 +280,32 @@ function activeClass(active: boolean): string {
             <i class="fas fa-border-style" />
             Dashed
           </button>
-          <button
-            type="button"
-            class="flex h-8 items-center justify-center gap-1 rounded-md border-0 text-xs"
-            :class="activeClass(arrowStart)"
-            title="Arrowhead at start"
-            aria-label="Arrowhead at start"
-            :aria-pressed="arrowStart"
-            @click="emit('update:arrowStart', !arrowStart)"
-          >
-            <i class="fas fa-arrow-left" />
-            Start
-          </button>
-          <button
-            type="button"
-            class="flex h-8 items-center justify-center gap-1 rounded-md border-0 text-xs"
-            :class="activeClass(arrowEnd)"
-            title="Arrowhead at end"
-            aria-label="Arrowhead at end"
-            :aria-pressed="arrowEnd"
-            @click="emit('update:arrowEnd', !arrowEnd)"
-          >
-            <i class="fas fa-arrow-right" />
-            End
-          </button>
+          <template v-if="activeShape === 'line' || activeShape === 'arrow'">
+            <button
+              type="button"
+              class="flex h-8 items-center justify-center gap-1 rounded-md border-0 text-xs"
+              :class="activeClass(arrowStart)"
+              title="Arrowhead at start"
+              aria-label="Arrowhead at start"
+              :aria-pressed="arrowStart"
+              @click="emit('update:arrowStart', !arrowStart)"
+            >
+              <i class="fas fa-arrow-left" />
+              Start
+            </button>
+            <button
+              type="button"
+              class="flex h-8 items-center justify-center gap-1 rounded-md border-0 text-xs"
+              :class="activeClass(arrowEnd)"
+              title="Arrowhead at end"
+              aria-label="Arrowhead at end"
+              :aria-pressed="arrowEnd"
+              @click="emit('update:arrowEnd', !arrowEnd)"
+            >
+              <i class="fas fa-arrow-right" />
+              End
+            </button>
+          </template>
         </div>
         <p class="m-0 text-[10px] leading-snug text-surface-400">
           Fill uses the stroke color at 20% opacity.
