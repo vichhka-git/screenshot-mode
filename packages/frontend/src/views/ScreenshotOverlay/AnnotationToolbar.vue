@@ -166,6 +166,10 @@ function toggleShapePopover(event: Event): void {
 }
 
 function chooseShape(shape: ShapeKind): void {
+  if (shape === "line") {
+    emit("update:arrowStart", false);
+    emit("update:arrowEnd", false);
+  }
   emit("update:tool", shape);
   shapePopover.value?.hide();
 }
