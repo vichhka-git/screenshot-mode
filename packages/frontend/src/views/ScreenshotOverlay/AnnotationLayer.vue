@@ -55,6 +55,7 @@ const emit = defineEmits<{
   add: [annotation: Annotation];
   update: [annotations: Annotation[]];
   remove: [ids: string[]];
+  select: [ids: string[]];
   cancel: [];
 }>();
 
@@ -752,7 +753,7 @@ function openTextInput(
   };
   void nextTick(() => {
     const input = textInputRef.value;
-    input?.focus();
+    input?.focus({ preventScroll: true });
     if (annotation !== undefined) {
       input?.select();
     }
@@ -1149,6 +1150,32 @@ function handlePointerCancel(event: PointerEvent): void {
   draw();
 }
 
+function isStyleUi(target: EventTarget | undefined): boolean {
+  return (
+    target instanceof Element &&
+    target.closest(
+      "[data-annotation-style-ui], .p-popover, .p-select-overlay, .p-colorpicker-panel",
+    ) !== null
+  );
+}
+
+function handleDocumentPointerDown(event: PointerEvent): void {
+  if (textDraft.value === undefined) {
+    return;
+  }
+
+  const target = event.target;
+  if (
+    target instanceof Element &&
+    (target.closest("[data-annotation-text-input]") !== null ||
+      isStyleUi(target))
+  ) {
+    return;
+  }
+
+  commitText();
+}
+
 function handleKeyDown(event: KeyboardEvent): void {
   if (event.key !== "Delete" && event.key !== "Backspace") {
     return;
@@ -1237,6 +1264,41 @@ watch(
   },
 );
 
+watch(selectedIds, (ids) => {
+  emit("select", [...ids]);
+});
+
+watch(
+  [
+    () => color,
+    () => fontSize,
+    () => fontFamily,
+    () => fontWeight,
+    () => fontStyle,
+    () => underline,
+    () => indent,
+    () => boxed,
+  ],
+  () => {
+    const input = textDraft.value;
+    if (input === undefined) {
+      return;
+    }
+
+    textDraft.value = {
+      ...input,
+      color,
+      fontSize,
+      fontFamily,
+      fontWeight,
+      fontStyle,
+      underline,
+      indent,
+      boxed,
+    };
+  },
+);
+
 watch(
   () => tool,
   () => {
@@ -1260,6 +1322,7 @@ onMounted(() => {
 
   window.addEventListener("resize", resizeCanvas);
   window.addEventListener("keydown", handleKeyDown);
+  window.addEventListener("pointerdown", handleDocumentPointerDown);
   resizeCanvas();
 });
 
@@ -1267,6 +1330,7 @@ onUnmounted(() => {
   resizeObserver?.disconnect();
   window.removeEventListener("resize", resizeCanvas);
   window.removeEventListener("keydown", handleKeyDown);
+  window.removeEventListener("pointerdown", handleDocumentPointerDown);
 });
 </script>
 
@@ -1301,12 +1365,12 @@ onUnmounted(() => {
       aria-label="Annotation text"
       class="screenshot-annotation-ui pointer-events-auto absolute z-30 min-w-32 rounded border-2 bg-surface-900/95 px-1 py-0.5 shadow-lg outline-none"
       :style="textInputStyle"
+      data-annotation-text-input
       @pointerdown.stop
       @click.stop
       @contextmenu.prevent.stop="cancelCurrentTool"
       @keydown.enter.prevent.stop="commitText"
       @keydown.esc.prevent.stop="cancelText"
-      @blur="commitText"
     />
   </div>
 </template>

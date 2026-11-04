@@ -320,6 +320,7 @@ defineExpose({
             option-value="value"
             :allow-empty="false"
             size="small"
+            class="relative z-30"
           />
         </div>
         <div class="min-h-0 flex-1 overflow-hidden">
@@ -344,6 +345,7 @@ defineExpose({
             option-value="value"
             :allow-empty="false"
             size="small"
+            class="relative z-30"
           />
         </div>
         <div class="relative min-h-0 flex-1 overflow-hidden">

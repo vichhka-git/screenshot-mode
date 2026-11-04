@@ -204,6 +204,7 @@ function activeClass(active: boolean): string {
       :key="item.value"
       type="button"
       class="h-4 w-4 rounded-full border border-surface-500"
+      data-annotation-style-ui
       :class="
         color === item.value
           ? 'ring-2 ring-surface-50 ring-offset-1 ring-offset-surface-800'
@@ -216,7 +217,11 @@ function activeClass(active: boolean): string {
       @click="emit('update:color', item.value)"
     />
 
-    <span class="ml-1 flex items-center" title="Custom color">
+    <span
+      class="ml-1 flex items-center"
+      title="Custom color"
+      data-annotation-style-ui
+    >
       <ColorInput
         :color="color"
         append-to="body"
@@ -234,6 +239,7 @@ function activeClass(active: boolean): string {
       class="w-28"
       title="Annotation size"
       aria-label="Annotation size"
+      data-annotation-style-ui
       @update:model-value="emit('update:strokeWidth', $event)"
     >
       <template #value="{ value }">
@@ -256,7 +262,7 @@ function activeClass(active: boolean): string {
       </template>
     </Select>
 
-    <span class="flex items-center gap-1">
+    <span class="flex items-center gap-1" data-annotation-style-ui>
       <button
         type="button"
         class="flex h-8 items-center gap-1 rounded-md border-0 bg-transparent px-2 text-surface-300 hover:bg-surface-700 hover:text-surface-50"
@@ -269,7 +275,7 @@ function activeClass(active: boolean): string {
         <i class="fas fa-chevron-down text-[9px]" />
       </button>
       <Popover ref="fontPopover" append-to="body" :base-z-index="600">
-        <div class="flex w-64 flex-col gap-3 p-3">
+        <div class="flex w-64 flex-col gap-3 p-3" data-annotation-style-ui>
           <div class="flex flex-col gap-1">
             <span
               class="text-[10px] font-semibold uppercase tracking-widest text-surface-500"

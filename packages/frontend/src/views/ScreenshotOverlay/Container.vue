@@ -111,6 +111,12 @@ const annotationFontStyle = ref<"normal" | "italic">(
 const annotationUnderline = ref<boolean>(DEFAULT_ANNOTATION_UNDERLINE);
 const annotationIndent = ref<number>(DEFAULT_ANNOTATION_INDENT);
 const annotationBoxed = ref<boolean>(DEFAULT_ANNOTATION_BOXED);
+const selectedAnnotationIds = ref<string[]>([]);
+
+const selectedAnnotations = computed(() => {
+  const ids = new Set(selectedAnnotationIds.value);
+  return annotations.value.filter((annotation) => ids.has(annotation.id));
+});
 
 const canUndoAnnotations = computed(() => annotationPast.value.length > 0);
 const canRedoAnnotations = computed(() => annotationFuture.value.length > 0);
@@ -269,6 +275,7 @@ function resetAnnotations(): void {
   annotationPast.value = [];
   annotationFuture.value = [];
   annotationTool.value = AnnotationTool.Select;
+  selectedAnnotationIds.value = [];
 }
 
 function commitAnnotations(next: Annotation[]): void {
@@ -303,6 +310,21 @@ function handleUpdateAnnotations(updated: Annotation[]): void {
   );
 }
 
+function handleAnnotationSelection(ids: string[]): void {
+  selectedAnnotationIds.value = [...ids];
+}
+
+watch(
+  selectedAnnotations,
+  (selected) => {
+    const first = selected[0];
+    if (first !== undefined) {
+      syncToolbarFromAnnotation(first);
+    }
+  },
+  { deep: true },
+);
+
 function handleRemoveAnnotations(ids: string[]): void {
   if (ids.length === 0) {
     return;
@@ -334,11 +356,117 @@ function handleRedoAnnotation(): void {
   annotations.value = next;
 }
 
+function syncToolbarFromAnnotation(annotation: Annotation): void {
+  annotationColor.value = annotation.color;
+  annotationWidth.value = annotation.width;
+
+  if (annotation.type === "text" || annotation.type === "step") {
+    annotationFontSize.value = annotation.fontSize;
+    annotationFontFamily.value =
+      annotation.fontFamily ?? DEFAULT_ANNOTATION_FONT_FAMILY;
+  }
+
+  if (annotation.type === "text") {
+    annotationFontWeight.value =
+      annotation.fontWeight ?? DEFAULT_ANNOTATION_FONT_WEIGHT;
+    annotationFontStyle.value =
+      annotation.fontStyle ?? DEFAULT_ANNOTATION_FONT_STYLE;
+    annotationUnderline.value =
+      annotation.underline ?? DEFAULT_ANNOTATION_UNDERLINE;
+    annotationIndent.value = annotation.indent ?? DEFAULT_ANNOTATION_INDENT;
+    annotationBoxed.value = annotation.boxed ?? DEFAULT_ANNOTATION_BOXED;
+  }
+}
+
+function updateSelectedAnnotations(
+  update: (annotation: Annotation) => Annotation,
+): void {
+  const selected = new Set(selectedAnnotationIds.value);
+  if (selected.size === 0) {
+    return;
+  }
+
+  const next = annotations.value.map((annotation) =>
+    selected.has(annotation.id) ? update(annotation) : annotation,
+  );
+  if (
+    next.every((annotation, index) => annotation === annotations.value[index])
+  ) {
+    return;
+  }
+
+  commitAnnotations(next);
+}
+
+function handleAnnotationColor(color: string): void {
+  annotationColor.value = color;
+  updateSelectedAnnotations((annotation) => ({ ...annotation, color }));
+}
+
+function handleAnnotationWidth(width: number): void {
+  annotationWidth.value = width;
+  updateSelectedAnnotations((annotation) => ({ ...annotation, width }));
+}
+
+function handleAnnotationFontSize(fontSize: number): void {
+  annotationFontSize.value = fontSize;
+  updateSelectedAnnotations((annotation) =>
+    annotation.type === "text" || annotation.type === "step"
+      ? { ...annotation, fontSize }
+      : annotation,
+  );
+}
+
+function handleAnnotationFontFamily(fontFamily: string): void {
+  annotationFontFamily.value = fontFamily;
+  updateSelectedAnnotations((annotation) =>
+    annotation.type === "text" || annotation.type === "step"
+      ? { ...annotation, fontFamily }
+      : annotation,
+  );
+}
+
+function handleAnnotationFontWeight(fontWeight: number): void {
+  annotationFontWeight.value = fontWeight;
+  updateSelectedAnnotations((annotation) =>
+    annotation.type === "text" ? { ...annotation, fontWeight } : annotation,
+  );
+}
+
+function handleAnnotationFontStyle(fontStyle: "normal" | "italic"): void {
+  annotationFontStyle.value = fontStyle;
+  updateSelectedAnnotations((annotation) =>
+    annotation.type === "text" ? { ...annotation, fontStyle } : annotation,
+  );
+}
+
+function handleAnnotationUnderline(underline: boolean): void {
+  annotationUnderline.value = underline;
+  updateSelectedAnnotations((annotation) =>
+    annotation.type === "text" ? { ...annotation, underline } : annotation,
+  );
+}
+
+function handleAnnotationIndent(indent: number): void {
+  annotationIndent.value = indent;
+  updateSelectedAnnotations((annotation) =>
+    annotation.type === "text" ? { ...annotation, indent } : annotation,
+  );
+}
+
+function handleAnnotationBoxed(boxed: boolean): void {
+  annotationBoxed.value = boxed;
+  updateSelectedAnnotations((annotation) =>
+    annotation.type === "text" ? { ...annotation, boxed } : annotation,
+  );
+}
+
 function handleClearAnnotations(): void {
   if (annotations.value.length === 0) {
     return;
   }
 
+  selectedAnnotationIds.value = [];
   commitAnnotations([]);
 }
 
@@ -526,15 +654,15 @@ onUnmounted(() => {
           :can-redo="canRedoAnnotations"
           :has-annotations="hasAnnotations"
           @update:tool="annotationTool = $event"
-          @update:color="annotationColor = $event"
-          @update:stroke-width="annotationWidth = $event"
-          @update:font-size="annotationFontSize = $event"
-          @update:font-family="annotationFontFamily = $event"
-          @update:font-weight="annotationFontWeight = $event"
-          @update:font-style="annotationFontStyle = $event"
-          @update:underline="annotationUnderline = $event"
-          @update:indent="annotationIndent = $event"
-          @update:boxed="annotationBoxed = $event"
+          @update:color="handleAnnotationColor"
+          @update:stroke-width="handleAnnotationWidth"
+          @update:font-size="handleAnnotationFontSize"
+          @update:font-family="handleAnnotationFontFamily"
+          @update:font-weight="handleAnnotationFontWeight"
+          @update:font-style="handleAnnotationFontStyle"
+          @update:underline="handleAnnotationUnderline"
+          @update:indent="handleAnnotationIndent"
+          @update:boxed="handleAnnotationBoxed"
           @undo="handleUndoAnnotation"
           @redo="handleRedoAnnotation"
           @clear="handleClearAnnotations"
@@ -606,6 +734,7 @@ onUnmounted(() => {
                     @add="handleAddAnnotation"
                     @update="handleUpdateAnnotations"
                     @remove="handleRemoveAnnotations"
+                    @select="handleAnnotationSelection"
                     @cancel="handleCancelAnnotationTool"
                   />
                 </template>

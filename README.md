@@ -46,7 +46,7 @@ The annotation bar sits under the overlay header. Pick a tool, a color, a stroke
 - Numbered step drops the next number in sequence.
 - Black box covers the content underneath.
 
-Use the swatches or the custom color picker for any color. The size menu sets line weight. The Text style popover sets the font family, size, bold, italic, and underline. Sizes accept any value from 1 to 300 px. Use the indent buttons to inset a label, and Box to draw a rounded background behind it. Shape, text, step, and redaction tools return to Select after one use. Pen and highlighter stay active for several strokes. Right-click cancels the active tool and returns to Select.
+Use the swatches or the custom color picker for any color. The size menu sets line weight. The Text style popover sets the font family, size, bold, italic, and underline. Sizes accept any value from 1 to 300 px. Use the indent buttons to inset a label, and Box to draw a rounded background behind it. Selecting an annotation loads its color, line weight, and text style into the bar. Changes apply to the selection. While you edit a label, font and style changes keep the edit open until you click outside the style controls. Shape, text, step, and redaction tools return to Select after one use. Pen and highlighter stay active for several strokes. Right-click cancels the active tool and returns to Select.
 
 Undo with Cmd+Z on macOS or Ctrl+Z on Windows. Redo with Cmd+Shift+Z, Ctrl+Shift+Z, or Ctrl+Y. Undo, redo, and clear also sit on the bar. Annotations are redrawn at export resolution, so they stay sharp in the PNG and in the clipboard copy.
 
