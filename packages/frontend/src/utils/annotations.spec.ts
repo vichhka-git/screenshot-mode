@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   type Annotation,
   getRect,
+  getStepRadius,
   isShapeAnnotation,
   nextStepNumber,
 } from "@/utils/annotations";
@@ -48,6 +49,13 @@ describe("nextStepNumber", () => {
     };
 
     expect(nextStepNumber([arrow, step(1)])).toBe(2);
+  });
+});
+
+describe("getStepRadius", () => {
+  it("grows with the font size and extra digits", () => {
+    expect(getStepRadius(40, 1)).toBeGreaterThan(getStepRadius(20, 1));
+    expect(getStepRadius(20, 10)).toBeGreaterThan(getStepRadius(20, 1));
   });
 });
 

@@ -17,6 +17,7 @@ import {
   type AnnotationTool as AnnotationToolType,
   drawAnnotations,
   getRect,
+  getStepRadius,
   isShapeAnnotation,
   nextStepNumber,
 } from "@/utils/annotations";
@@ -192,7 +193,7 @@ function getAnnotationBounds(annotation: Annotation): Bounds | undefined {
   }
 
   if (annotation.type === "step") {
-    const radius = Math.max(10, annotation.fontSize * 0.7) * scale;
+    const radius = getStepRadius(annotation.fontSize, annotation.number, scale);
     return {
       x: annotation.position.x * width - radius,
       y: annotation.position.y * height - radius,

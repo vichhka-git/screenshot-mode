@@ -200,9 +200,47 @@ function handleResetToTemplate(): void {
   settings.value = setTabSettingsFromTemplate(key, selectedTemplateId.value);
 }
 
+function isEditableTarget(target: unknown): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
+}
+
 function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === "Escape" && isVisible.value) {
+  if (!isVisible.value) {
+    return;
+  }
+
+  if (event.key === "Escape") {
     closeOverlay();
+    return;
+  }
+
+  if (isEditableTarget(event.target)) {
+    return;
+  }
+
+  const modifier = event.metaKey || event.ctrlKey;
+  if (!modifier || event.altKey) {
+    return;
+  }
+
+  const key = event.key.toLowerCase();
+  if (key === "z") {
+    event.preventDefault();
+    if (event.shiftKey) {
+      handleRedoAnnotation();
+    } else {
+      handleUndoAnnotation();
+    }
+    return;
+  }
+
+  if (event.ctrlKey && !event.metaKey && key === "y") {
+    event.preventDefault();
+    handleRedoAnnotation();
   }
 }
 
@@ -230,6 +268,10 @@ function commitAnnotations(next: Annotation[]): void {
 
 function handleAddAnnotation(annotation: Annotation): void {
   commitAnnotations([...annotations.value, annotation]);
+
+  if (annotation.type !== "pen" && annotation.type !== "highlighter") {
+    annotationTool.value = AnnotationTool.Select;
+  }
 }
 
 function handleUpdateAnnotations(updated: Annotation[]): void {

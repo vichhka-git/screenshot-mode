@@ -46,7 +46,9 @@ The annotation bar sits under the overlay header. Pick a tool, a color, a stroke
 - Numbered step drops the next number in sequence.
 - Black box covers the content underneath.
 
-Use the swatches or the custom color picker for any color. The size menu sets line weight, and the text size menu sets labels and numbered steps from 6 to 40 px. Undo, redo, and clear sit at the end of the bar. Annotations are redrawn at export resolution, so they stay sharp in the PNG and in the clipboard copy.
+Use the swatches or the custom color picker for any color. The size menu sets line weight. The text size field takes any value from 1 to 300 px for labels and numbered steps. Shape, text, step, and redaction tools return to Select after one use. Pen and highlighter stay active for several strokes.
+
+Undo with Cmd+Z on macOS or Ctrl+Z on Windows. Redo with Cmd+Shift+Z, Ctrl+Shift+Z, or Ctrl+Y. Undo, redo, and clear also sit at the end of the bar. Annotations are redrawn at export resolution, so they stay sharp in the PNG and in the clipboard copy.
 
 ## Installation
 

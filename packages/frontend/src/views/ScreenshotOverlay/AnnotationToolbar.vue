@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import InputNumber from "primevue/inputnumber";
 import Select from "primevue/select";
 
 import { ColorInput } from "@/components/ColorInput";
 import {
   ANNOTATION_COLORS,
-  ANNOTATION_FONT_SIZES,
   ANNOTATION_WIDTHS,
   AnnotationTool,
   type AnnotationTool as AnnotationToolType,
@@ -77,6 +77,14 @@ function widthLabel(value: number): string {
   return (
     ANNOTATION_WIDTHS.find((item) => item.value === value)?.label ?? "Size"
   );
+}
+
+function handleFontSize(value: unknown): void {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return;
+  }
+
+  emit("update:fontSize", Math.min(300, Math.max(1, Math.round(value))));
 }
 </script>
 
@@ -170,30 +178,26 @@ function widthLabel(value: number): string {
       </template>
     </Select>
 
-    <Select
-      :model-value="fontSize"
-      :options="ANNOTATION_FONT_SIZES"
-      option-label="label"
-      option-value="value"
-      class="w-32"
-      title="Text size"
-      aria-label="Text size"
-      @update:model-value="emit('update:fontSize', $event)"
-    >
-      <template #value="{ value }">
-        <span class="flex items-center gap-1.5">
-          <span class="text-[10px] font-semibold uppercase">Aa</span>
-          <span>{{ value }} px</span>
-        </span>
-      </template>
-    </Select>
+    <span class="flex items-center gap-1">
+      <InputNumber
+        :model-value="fontSize"
+        :min="1"
+        :max="300"
+        :step="1"
+        class="w-20"
+        title="Text size"
+        aria-label="Text size"
+        @update:model-value="handleFontSize"
+      />
+      <span class="text-xs text-surface-400">px</span>
+    </span>
 
     <span class="mx-1.5 h-5 w-px bg-surface-600" />
 
     <button
       type="button"
       class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:opacity-40"
-      title="Undo"
+      title="Undo (Cmd/Ctrl+Z)"
       aria-label="Undo"
       :disabled="!canUndo"
       @click="emit('undo')"
@@ -203,7 +207,7 @@ function widthLabel(value: number): string {
     <button
       type="button"
       class="flex h-8 w-8 items-center justify-center rounded-md border-0 bg-transparent text-surface-300 hover:bg-surface-700 hover:text-surface-50 disabled:cursor-not-allowed disabled:opacity-40"
-      title="Redo"
+      title="Redo (Cmd/Ctrl+Shift+Z)"
       aria-label="Redo"
       :disabled="!canRedo"
       @click="emit('redo')"

@@ -79,31 +79,20 @@ export const ANNOTATION_WIDTHS = [
   { value: 12, label: "12 px" },
 ] as const;
 
-export const ANNOTATION_FONT_SIZES = [
-  { value: 6, label: "6 px" },
-  { value: 8, label: "8 px" },
-  { value: 10, label: "10 px" },
-  { value: 11, label: "11 px" },
-  { value: 12, label: "12 px" },
-  { value: 14, label: "14 px" },
-  { value: 16, label: "16 px" },
-  { value: 18, label: "18 px" },
-  { value: 20, label: "20 px" },
-  { value: 22, label: "22 px" },
-  { value: 24, label: "24 px" },
-  { value: 26, label: "26 px" },
-  { value: 28, label: "28 px" },
-  { value: 30, label: "30 px" },
-  { value: 32, label: "32 px" },
-  { value: 34, label: "34 px" },
-  { value: 36, label: "36 px" },
-  { value: 38, label: "38 px" },
-  { value: 40, label: "40 px" },
-] as const;
-
 export const DEFAULT_ANNOTATION_COLOR = "#ef4444";
 export const DEFAULT_ANNOTATION_WIDTH = 4;
 export const DEFAULT_ANNOTATION_FONT_SIZE = 20;
+
+export function getStepRadius(
+  fontSize: number,
+  step: number,
+  scale = 1,
+): number {
+  const glyphSize = fontSize * 0.9 * scale;
+  const textWidth = String(step).length * glyphSize * 0.62;
+  const padding = Math.max(2, fontSize * 0.12) * scale;
+  return Math.max(glyphSize * 0.58, textWidth * 0.55) + padding;
+}
 
 const FONT_FAMILY = `Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`;
 
@@ -313,7 +302,7 @@ function drawStep(
 ): void {
   const x = annotation.position.x * width;
   const y = annotation.position.y * height;
-  const radius = Math.max(10, annotation.fontSize * 0.7) * scale;
+  const radius = getStepRadius(annotation.fontSize, annotation.number, scale);
 
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
