@@ -167,8 +167,8 @@ export const ANNOTATION_WIDTHS = [
 ] as const;
 
 export const DEFAULT_ANNOTATION_COLOR = "#ef4444";
-export const DEFAULT_ANNOTATION_WIDTH = 4;
-export const DEFAULT_ANNOTATION_FONT_SIZE = 20;
+export const DEFAULT_ANNOTATION_WIDTH = 2;
+export const DEFAULT_ANNOTATION_FONT_SIZE = 12;
 
 export function getStepRadius(
   fontSize: number,
